@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+
+# Lean
+.lake/
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
