@@ -95,8 +95,13 @@ def run(
     max_turns: int | None = None,
     provider: str | None = None,
     resume: str | bool = False,
-) -> str:
-    """Run the agent on a formalization task. Returns the final assistant message."""
+    return_transcript: bool = False,
+) -> str | tuple[str, dict]:
+    """Run the agent on a formalization task.
+
+    Returns the final assistant message, or (message, transcript_dict) if
+    return_transcript is True.
+    """
     system = load_system_prompt()
 
     if resume:
@@ -120,13 +125,35 @@ def run(
 
     provider_name = provider or detect_provider(model)
 
+    def _result(text: str, turns: int):
+        if return_transcript:
+            # Build a clean transcript (no raw_part)
+            clean = []
+            for msg in messages:
+                if msg["role"] == "assistant" and isinstance(msg["content"], list):
+                    clean.append({"role": "assistant", "content": [
+                        {k: v for k, v in item.items() if k != "raw_part"}
+                        for item in msg["content"]
+                    ]})
+                else:
+                    clean.append(msg)
+            transcript = {
+                "session_id": session_id,
+                "model": model,
+                "turns": turns,
+                "usage": {"input_tokens": total_usage.input_tokens, "output_tokens": total_usage.output_tokens},
+                "messages": clean,
+            }
+            return text, transcript
+        return text
+
     turn = 0
     while True:
         turn += 1
         if max_turns and turn > max_turns:
             _save_session(session_id, model, messages, total_usage)
             _print_usage(model, turn - 1, total_usage)
-            return "Error: max turns reached without completing the proof."
+            return _result("Error: max turns reached without completing the proof.", turn - 1)
 
         print(f"\n--- turn {turn} ---", flush=True)
 
@@ -175,7 +202,7 @@ def run(
             _save_session(session_id, model, messages, total_usage)
             _print_usage(model, turn, total_usage)
             text = "".join(p["text"] for p in assistant_parts if p["type"] == "text")
-            return text or "(no response)"
+            return _result(text or "(no response)", turn)
 
         # Execute tool calls and build results
         tool_results = []

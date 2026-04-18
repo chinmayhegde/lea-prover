@@ -9,6 +9,10 @@ uv.lock
 
 # Lean
 .lake/
+miniF2F-lean4/
+
+# Eval results
+eval/results/
 
 # OS
 .DS_Store
