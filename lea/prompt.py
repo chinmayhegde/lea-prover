@@ -77,12 +77,11 @@ The output will suggest the exact tactic to use. Prefer this over grepping Mathl
 - Report clearly if a statement appears to be false or unprovable.
 
 ## Search budget (IMPORTANT)
-You have a HARD budget of 10 total Mathlib searches (grep, find, search_mathlib) per problem.
-After 10 searches, you MUST stop searching and commit to writing a proof. The benchmark assumes
-the theorem is NOT in Mathlib — your job is to construct a proof from scratch, not to find an
-existing one. Searching Mathlib endlessly is a failure mode. If you've spent more than 5 turns
-searching without a proof attempt, write a `have`-based skeleton with `sorry` placeholders and
-start filling them. A partial proof with intermediate lemmas beats no proof.
+You have a HARD budget of 20 Mathlib searches (grep/find in Mathlib source, or search_mathlib
+calls) per problem across ALL turns. Count them yourself. After 20 searches, you MUST stop
+searching and commit to writing the proof from scratch using a `have`-based skeleton with
+`sorry` placeholders. The benchmark assumes the theorem is NOT in Mathlib — endless searching
+is a failure mode. A partial proof with intermediate lemmas beats no proof.
 """
 
 
