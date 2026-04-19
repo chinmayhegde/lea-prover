@@ -51,10 +51,10 @@ Six tools: `read_file`, `write_file`, `edit_file`, `lean_check`, `search_mathlib
 
 Lea v1 with Gemini 3.1 Pro, single-pass (no retries), default prompts:
 
-| Benchmark | Pass rate | Problems | Cost |
-|-----------|-----------|----------|------|
-| [miniF2F](https://github.com/yangky11/miniF2F-lean4) validation | **211/244 (86.5%)** | Competition math (AMC, AIME, IMO) | ~$31 |
-| [FormalQualBench](https://github.com/math-inc/FormalQualBench) | **3/23 (13%)** | Graduate-level (PhD qualifying exam) | ~$60 |
+| Benchmark | Pass rate | Problems | Avg cost/problem |
+|-----------|-----------|----------|-----------------|
+| [miniF2F](https://github.com/yangky11/miniF2F-lean4) validation | **211/244 (86.5%)** | Competition math (AMC, AIME, IMO) | ~$0.13 |
+| [FormalQualBench](https://github.com/math-inc/FormalQualBench) | **3/23 (13%)** | Graduate-level (PhD qualifying exam) | ~$2.60 |
 
 FQB problems solved: De Bruijn-Erdős theorem, Quillen-Suslin theorem, Jordan derangement theorem.
 
