@@ -10,6 +10,8 @@ uv.lock
 # Lean
 .lake/
 miniF2F-lean4/
+workspace/proofs/*
+!workspace/proofs/.gitkeep
 
 # Eval results
 eval/results/
