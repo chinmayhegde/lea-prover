@@ -51,12 +51,12 @@ Six tools: `read_file`, `write_file`, `edit_file`, `lean_check`, `search_mathlib
 
 Lea v1 with Gemini 3.1 Pro, single-pass (no retries), default prompts:
 
-| Benchmark | Pass rate | Problems | Avg cost/problem |
-|-----------|-----------|----------|-----------------|
-| [miniF2F](https://github.com/yangky11/miniF2F-lean4) validation | **211/244 (86.5%)** | Competition math (AMC, AIME, IMO) | ~$0.13 |
-| [FormalQualBench](https://github.com/math-inc/FormalQualBench) | **3/23 (13%)** | Graduate-level (PhD qualifying exam) | ~$2.60 |
+| Benchmark | Pass rate | Problems | Avg cost | Avg time | Total time |
+|-----------|-----------|----------|----------|----------|------------|
+| [miniF2F](https://github.com/yangky11/miniF2F-lean4) validation | **211/244 (86.5%)** | Competition math (AMC, AIME, IMO) | $0.13 | 1m 43s | 7h 0m |
+| [FormalQualBench](https://github.com/math-inc/FormalQualBench) | **3/23 (13%)** | Graduate-level (PhD qualifying exam) | $2.60 | 9m 21s | 3h 35m |
 
-FQB problems solved: De Bruijn-Erdős theorem, Quillen-Suslin theorem, Jordan derangement theorem.
+FQB problems solved: De Bruijn-Erdős theorem, Quillen-Suslin theorem. Jordan derangement theorem solved in a standalone run but not reproduced in the batch eval (nondeterminism).
 
 ### Running evals
 
