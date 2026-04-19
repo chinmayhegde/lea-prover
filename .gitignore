@@ -16,6 +16,7 @@ workspace/proofs/*
 
 # Eval results
 eval/results/
+eval/*.log
 
 # OS
 .DS_Store
