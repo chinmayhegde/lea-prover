@@ -232,7 +232,7 @@ def _stream_openai(model, system, messages, tools):
     import json
     from openai import OpenAI
 
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=os.environ.get("OPENAI_BASE_URL", None))
 
     # Convert tools to OpenAI format
     openai_tools = [
