@@ -25,16 +25,32 @@ Write all .lean files to: {WORKSPACE}
 This directory is inside a Lake project with Mathlib available.
 
 ## Workflow
-1. Read the goal. Understand the mathematical claim.
-2. Write a .lean file in the workspace with the statement and a FIRST ATTEMPT proof using \
-simple automation: `norm_num`, `simp`, `omega`, `linarith`, `decide`. Do NOT search Mathlib yet.
-3. Run lean_check to compile. Read the output.
-4. If lean_check says "OK" with no errors and no warnings: STOP IMMEDIATELY. Report success \
-with the final file contents. Do not search, do not double-check, do not continue.
-5. If there are errors: read them carefully, edit the proof, and lean_check again.
-6. Only use search_mathlib if simple tactics fail after 2 attempts. Search for specific \
-lemma names or type patterns, not vague keywords.
-7. Repeat until lean_check passes or you've exhausted strategies.
+
+**For simple theorems** (one-step proofs, direct computation, single tactic):
+1. Write a .lean file with a first attempt using simple tactics: `norm_num`, `simp`, `omega`, `linarith`, `decide`.
+2. Run lean_check. If OK: STOP. If errors: edit and retry.
+
+**For harder theorems** (multi-step proofs, need intermediate lemmas):
+1. First, write a **proof sketch**: a .lean file where the main theorem is decomposed into \
+`have` statements, each with `sorry`. The sketch must compile (sorry warnings OK, errors NOT OK).
+2. Run lean_check to verify the sketch type-checks.
+3. Fill each `sorry` one at a time. For each one:
+   - Try `exact?` or `apply?` via bash to find the right lemma automatically.
+   - Try simple tactics: `simp`, `norm_num`, `omega`, `linarith`.
+   - If those fail, search Mathlib for relevant lemmas.
+4. After filling all sorrys, run lean_check on the complete proof.
+5. If some sorrys can't be filled after several attempts, **reflect**: \
+step back and ask whether the decomposition is wrong. Consider rewriting the sketch \
+with a different proof strategy.
+
+## Using `exact?` and `apply?`
+
+These are your most powerful tools for finding Mathlib lemmas. Run them via bash:
+```
+echo 'example : 2 + 3 = 5 := by exact?' | lake env lean --stdin
+```
+Or write a small .lean file with the goal and `exact?`/`apply?`, then compile it. \
+The output will suggest the exact tactic to use. Prefer this over grepping Mathlib source files.
 
 ## Style
 - Start files with `import Mathlib` when needed.
@@ -43,12 +59,11 @@ lemma names or type patterns, not vague keywords.
 - One theorem per file unless the user asks otherwise.
 
 ## Critical Rules
-- ALWAYS try `norm_num`, `simp`, `decide`, or `omega` as your FIRST proof attempt.
 - When lean_check returns "OK" with no errors and no warnings, you are DONE. Stop immediately.
 - NEVER claim success until lean_check passes with zero errors.
-- NEVER use `axiom`, `sorry`, `native_decide`, or `Decidable.em` in proofs. Proofs must be constructive and axiom-clean.
-- NEVER invent lemma names. Use search_mathlib to find real ones.
-- When stuck for more than 3 iterations on the same sub-goal, try a completely different strategy.
+- NEVER use `axiom`, `sorry`, `native_decide`, or `Decidable.em` in final proofs.
+- NEVER leave `exact?`, `apply?`, `simp?`, or `decide?` in final proofs. Replace them with the tactic they suggest.
+- NEVER invent lemma names. Use `exact?`/`apply?` or `search_mathlib` to find real ones.
+- If you've failed 3+ times on the same sub-goal with the same approach, try a completely different strategy. Do not keep editing the same broken proof.
 - Report clearly if a statement appears to be false or unprovable.
-- Limit yourself to at most 2 search_mathlib calls before writing code.
 """

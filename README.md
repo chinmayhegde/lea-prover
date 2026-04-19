@@ -34,7 +34,7 @@ uv run lea "Define the Ackermann function using well-founded recursion. Prove th
   ackermann m (n+1) > ackermann m n. Prove ackermann 4 1 = 65533. Do not use Mathlib."
 ```
 
-See [workspace/proofs/](workspace/proofs/) for this and other generated outputs.
+See [examples/](examples/) for generated proofs.
 
 ## How it works
 
@@ -46,6 +46,40 @@ Lea runs a simple loop:
 4. If stuck, search Mathlib for relevant lemmas, or use `bash` to explore.
 
 Six tools: `read_file`, `write_file`, `edit_file`, `lean_check`, `search_mathlib`, `bash`. Supports Gemini, Anthropic, and OpenAI models. See [USAGE.md](USAGE.md) for full CLI reference.
+
+## Eval results
+
+Lea v1 with Gemini 3.1 Pro, single-pass (no retries), default prompts:
+
+| Benchmark | Pass rate | Problems | Cost |
+|-----------|-----------|----------|------|
+| [miniF2F](https://github.com/yangky11/miniF2F-lean4) validation | **211/244 (86.5%)** | Competition math (AMC, AIME, IMO) | ~$31 |
+| [FormalQualBench](https://github.com/math-inc/FormalQualBench) | **3/23 (13%)** | Graduate-level (PhD qualifying exam) | ~$60 |
+
+FQB problems solved: De Bruijn-Erdős theorem, Quillen-Suslin theorem, Jordan derangement theorem.
+
+### Running evals
+
+```bash
+# Clone benchmarks
+git clone https://github.com/yangky11/miniF2F-lean4
+git clone https://github.com/math-inc/FormalQualBench
+
+# Build each (downloads Mathlib)
+cd miniF2F-lean4 && lake exe cache get && lake build && cd ..
+cd FormalQualBench && lake exe cache get && lake build && cd ..
+
+# Run miniF2F validation split
+uv run python -m eval.run_minif2f --split valid
+
+# Run FormalQualBench
+uv run python -m eval.run_fqb
+
+# Check progress while running
+cat eval/results/valid_*.json | python3 -c "import json,sys; d=json.load(sys.stdin); print(f'{d[\"passed\"]}/{d[\"total\"]} ({d[\"pass_rate\"]}%)')"
+```
+
+Results are saved to `eval/results/` with per-problem transcripts. Use `--resume <path>` to continue a partial run.
 
 ## Customization
 
