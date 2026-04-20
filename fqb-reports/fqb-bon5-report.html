@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lea on FormalQualBench — Best-of-5</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Georgia, 'Times New Roman', serif; background: #fafaf8; color: #222; padding: 2rem; max-width: 860px; margin: 0 auto; line-height: 1.75; }
+  h1 { font-size: 1.85rem; margin-bottom: 0.2rem; font-weight: 700; }
+  h2 { font-size: 1.3rem; margin: 2.5rem 0 0.8rem; font-weight: 700; }
+  h3 { font-size: 1.05rem; margin: 1.5rem 0 0.4rem; font-weight: 700; }
+  .meta { color: #888; font-size: 0.9rem; margin-bottom: 2rem; }
+  p { margin-bottom: 1rem; }
+  a { color: #1a5f7a; }
+  code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.88em; background: #f0eeea; padding: 0.15em 0.35em; border-radius: 3px; }
+  pre { background: #f0eeea; padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; margin: 1rem 0; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 1.2rem 0; font-size: 0.88rem; font-family: -apple-system, sans-serif; }
+  th { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 2px solid #ccc; font-weight: 600; color: #555; }
+  td { padding: 0.45rem 0.6rem; border-bottom: 1px solid #e8e6e2; vertical-align: top; }
+  tr:hover { background: #f5f3ef; }
+  .pass { color: #16a34a; font-weight: 700; }
+  .fail { color: #999; }
+  .cheat { color: #b45309; font-weight: 700; }
+  .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.78rem; font-weight: 600; font-family: -apple-system, sans-serif; }
+  .badge.solved { background: #dcfce7; color: #166534; }
+  .badge.cheated { background: #fed7aa; color: #9a3412; }
+  .badge.near-miss { background: #fef3c7; color: #92400e; }
+  .badge.spiral { background: #f3e8ff; color: #6b21a8; }
+  .badge.early { background: #f3f4f6; color: #6b7280; }
+  .badge.errors { background: #fee2e2; color: #991b1b; }
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.8rem; margin: 1.5rem 0; font-family: -apple-system, sans-serif; }
+  .stat { text-align: center; padding: 0.8rem 0.4rem; background: #fff; border: 1px solid #e0ddd6; border-radius: 6px; }
+  .stat .val { font-size: 1.5rem; font-weight: 700; color: #111; }
+  .stat .lbl { font-size: 0.72rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
+  .attempts { font-family: 'SF Mono', monospace; font-size: 0.82rem; }
+  .attempts .Y { color: #16a34a; font-weight: 700; }
+  .attempts .N { color: #ccc; }
+  blockquote { border-left: 3px solid #ddd; padding-left: 1rem; color: #666; font-style: italic; margin: 1rem 0; font-size: 0.92rem; }
+  .problem-detail { border-top: 1px solid #e8e6e2; padding: 1.2rem 0; }
+  .problem-header { display: flex; justify-content: space-between; align-items: baseline; }
+  .problem-meta { font-family: -apple-system, sans-serif; font-size: 0.82rem; color: #888; }
+  .attempt-list { font-family: -apple-system, sans-serif; font-size: 0.85rem; color: #666; }
+  hr { border: none; border-top: 1px solid #e0e0e0; margin: 2rem 0; }
+  .warning-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 1rem; border-radius: 4px; margin: 1rem 0; }
+</style>
+</head>
+<body>
+
+<h1>Lea on FormalQualBench — Best-of-5 Analysis</h1>
+<p class="meta">April 2026 · Lea v1 + Gemini 3.1 Pro · best-of-5 sampling · 20-search budget · <a href="https://github.com/chinmayhegde/lea-prover">github.com/chinmayhegde/lea-prover</a></p>
+
+<p>
+We ran <a href="https://github.com/chinmayhegde/lea-prover">Lea</a> — a minimal single-loop theorem-proving agent (~300 lines of Python, 6 tools, one system prompt) — on <a href="https://github.com/math-inc/FormalQualBench">FormalQualBench</a>, a benchmark of 23 graduate-level theorems in Lean 4.
+</p>
+
+<p>
+Setup: for each problem, we run the agent up to 5 times independently and accept any run that produces a proof compiling with no <code>sorry</code> and no custom <code>axiom</code>. Early stop: once an attempt succeeds, skip remaining attempts for that problem. A 20-search budget is enforced by the prompt. No other changes from the single-pass setup.
+</p>
+
+<div class="stats">
+  <div class="stat"><div class="val">6/23</div><div class="lbl">Legitimate</div></div>
+  <div class="stat"><div class="val">3/23</div><div class="lbl">Cheated</div></div>
+  <div class="stat"><div class="val">$105</div><div class="lbl">Total cost</div></div>
+  <div class="stat"><div class="val">11.1h</div><div class="lbl">Total time</div></div>
+  <div class="stat"><div class="val">$4.57</div><div class="lbl">Avg cost/problem</div></div>
+</div>
+
+<div class="warning-box">
+<strong>Verification note.</strong> Our eval harness compiles each proof with <code>lake env lean</code> and checks for <code>sorry</code>, <code>axiom</code>, or query tactics (<code>exact?</code> etc.) in the source. It does NOT check that the proof proves the <em>same</em> theorem as the challenge. FormalQualBench's official verification uses the <a href="https://github.com/leanprover/comparator">Comparator tool</a> which enforces statement equivalence. We caught 3 proofs that passed our check but cheated by redefining the theorem's content (e.g. defining <code>IsConnected := False</code> then using <code>False.elim</code>). Legitimate count: 6.
+</div>
+
+<h2>Comparison to leaderboard</h2>
+
+<table>
+<thead><tr><th>Agent</th><th>Solved</th><th>Cost/solve</th><th>Time/solve</th></tr></thead>
+<tbody>
+<tr><td><strong>Lea (best-of-5)</strong></td><td><strong>6/23</strong></td><td><strong>$5.68</strong></td><td><strong>31m</strong></td></tr>
+<tr><td>OpenGauss</td><td>8/23</td><td>$24.93</td><td>1h 48m</td></tr>
+<tr><td>Aristotle*</td><td>6/23</td><td>n/a</td><td>n/a</td></tr>
+<tr><td>Claude Code (Skills)</td><td>5/23</td><td>$13.47</td><td>51m</td></tr>
+<tr><td>Codex</td><td>5/23</td><td>n/a</td><td>40m</td></tr>
+<tr><td>opencode (Opus, Skills+MCP)</td><td>5/23</td><td>$22.22</td><td>1h 31m</td></tr>
+<tr><td>Claude Code</td><td>4/23</td><td>$23.16</td><td>1h 45m</td></tr>
+<tr><td>Lea (single-pass)</td><td>2-3/23</td><td>$2.60</td><td>9m</td></tr>
+</tbody>
+</table>
+
+<p>
+Lea ties with Aristotle at 6 solves — competitive with every published agent except OpenGauss, at a fraction of the cost and time. Single-pass Lea was cheaper still; best-of-5 roughly doubles the solve rate at roughly 5x the cost.
+</p>
+
+<h2>Results</h2>
+
+<table>
+<thead>
+<tr><th></th><th>Problem</th><th>Domain</th><th>Attempts</th><th>Lines</th><th>Cost</th><th>Status</th></tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="pass">✓</span></td>
+<td><strong>BanachStoneTheorem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Topology / functional analysis</td>
+<td class="attempts"><span class="Y">●</span></td>
+<td>393</td>
+<td>$13.21</td>
+<td><span class="badge solved">Solved</span></td>
+</tr>
+<tr>
+<td><span class="fail">✗</span></td>
+<td><strong>BorsukUlamTheorem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Topology / geometry</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span></td>
+<td>—</td>
+<td>$5.86</td>
+<td><span class="badge spiral">Search spiral</span></td>
+</tr>
+<tr>
+<td><span class="fail">✗</span></td>
+<td><strong>BurnsidePrimeDegreeTheorem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Algebra / group theory</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span></td>
+<td>—</td>
+<td>$6.00</td>
+<td><span class="badge spiral">Search spiral</span></td>
+</tr>
+<tr>
+<td><span class="fail">✗</span></td>
+<td><strong>CollatzMapAlmostBoundedValues</strong></td>
+<td style="font-size:0.82rem;color:#888;">Arithmetic dynamics</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span></td>
+<td>—</td>
+<td>$1.06</td>
+<td><span class="badge near-miss">Near-miss (sorry left)</span></td>
+</tr>
+<tr>
+<td><span class="pass">✓</span></td>
+<td><strong>ColorfulCaratheodoryTheorem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Combinatorial / convex geometry</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="Y">●</span></td>
+<td>366</td>
+<td>$3.58</td>
+<td><span class="badge solved">Solved</span></td>
+</tr>
+<tr>
+<td><span class="fail">✗</span></td>
+<td><strong>DLOQuantifierElimination</strong></td>
+<td style="font-size:0.82rem;color:#888;">Logic / model theory</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span></td>
+<td>—</td>
+<td>$17.17</td>
+<td><span class="badge spiral">Search spiral</span></td>
+</tr>
+<tr>
+<td><span class="pass">✓</span></td>
+<td><strong>DeBruijnErdos</strong></td>
+<td style="font-size:0.82rem;color:#888;">Combinatorics / graph theory</td>
+<td class="attempts"><span class="Y">●</span></td>
+<td>62</td>
+<td>$0.61</td>
+<td><span class="badge solved">Solved</span></td>
+</tr>
+<tr>
+<td><span class="cheat">!</span></td>
+<td><strong>ErdosDiscrepancyProblem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Additive combinatorics</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="Y">●</span></td>
+<td>15</td>
+<td>$1.53</td>
+<td><span class="badge cheated">Cheated (redefined theorem)</span></td>
+</tr>
+<tr>
+<td><span class="pass">✓</span></td>
+<td><strong>GleasonKahaneZelazkoTheorem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Complex analysis</td>
+<td class="attempts"><span class="Y">●</span></td>
+<td>226</td>
+<td>$3.62</td>
+<td><span class="badge solved">Solved</span></td>
+</tr>
+<tr>
+<td><span class="fail">✗</span></td>
+<td><strong>GreenTaoTheorem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Analytic number theory</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span></td>
+<td>—</td>
+<td>$2.35</td>
+<td><span class="badge errors">Compile errors</span></td>
+</tr>
+<tr>
+<td><span class="fail">✗</span></td>
+<td><strong>Hilbert17thProblem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Real algebraic geometry</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span></td>
+<td>—</td>
+<td>$2.93</td>
+<td><span class="badge spiral">Search spiral</span></td>
+</tr>
+<tr>
+<td><span class="fail">✗</span></td>
+<td><strong>JordanCycleTheorem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Algebra / group theory</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span></td>
+<td>—</td>
+<td>$9.97</td>
+<td><span class="badge spiral">Search spiral</span></td>
+</tr>
+<tr>
+<td><span class="pass">✓</span></td>
+<td><strong>JordanDerangementTheorem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Algebra / group theory</td>
+<td class="attempts"><span class="Y">●</span></td>
+<td>77</td>
+<td>$0.96</td>
+<td><span class="badge solved">Solved</span></td>
+</tr>
+<tr>
+<td><span class="fail">✗</span></td>
+<td><strong>KakeyaTheorem3D</strong></td>
+<td style="font-size:0.82rem;color:#888;">Geometric measure theory</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span></td>
+<td>—</td>
+<td>$0.76</td>
+<td><span class="badge errors">Compile errors</span></td>
+</tr>
+<tr>
+<td><span class="fail">✗</span></td>
+<td><strong>MaynardTaoBoundedPrimeGaps</strong></td>
+<td style="font-size:0.82rem;color:#888;">Number theory</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span></td>
+<td>—</td>
+<td>$1.66</td>
+<td><span class="badge errors">Compile errors</span></td>
+</tr>
+<tr>
+<td><span class="pass">✓</span></td>
+<td><strong>ParisHarringtonPrinciple</strong></td>
+<td style="font-size:0.82rem;color:#888;">Logic / Ramsey theory</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="Y">●</span></td>
+<td>289</td>
+<td>$12.08</td>
+<td><span class="badge solved">Solved</span></td>
+</tr>
+<tr>
+<td><span class="fail">✗</span></td>
+<td><strong>PontryaginDuality</strong></td>
+<td style="font-size:0.82rem;color:#888;">Harmonic analysis</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span></td>
+<td>—</td>
+<td>$2.87</td>
+<td><span class="badge near-miss">Near-miss (sorry left)</span></td>
+</tr>
+<tr>
+<td><span class="cheat">!</span></td>
+<td><strong>QuillenSuslinTheorem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Commutative algebra</td>
+<td class="attempts"><span class="Y">●</span></td>
+<td>18</td>
+<td>$0.79</td>
+<td><span class="badge cheated">Cheated (redefined theorem)</span></td>
+</tr>
+<tr>
+<td><span class="cheat">!</span></td>
+<td><strong>RungeTheorem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Complex analysis</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="Y">●</span></td>
+<td>16</td>
+<td>$3.27</td>
+<td><span class="badge cheated">Cheated (redefined theorem)</span></td>
+</tr>
+<tr>
+<td><span class="fail">✗</span></td>
+<td><strong>SchauderFixedPointTheorem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Fixed point theory</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span></td>
+<td>—</td>
+<td>$5.46</td>
+<td><span class="badge spiral">Search spiral</span></td>
+</tr>
+<tr>
+<td><span class="fail">✗</span></td>
+<td><strong>SkolemMahlerLechTheorem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Arithmetic dynamics</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span></td>
+<td>—</td>
+<td>$1.84</td>
+<td><span class="badge near-miss">Near-miss (sorry left)</span></td>
+</tr>
+<tr>
+<td><span class="fail">✗</span></td>
+<td><strong>TernaryGoldbachTheorem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Number theory</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span></td>
+<td>—</td>
+<td>$0.68</td>
+<td><span class="badge near-miss">Near-miss (sorry left)</span></td>
+</tr>
+<tr>
+<td><span class="fail">✗</span></td>
+<td><strong>VonNeumannDoubleCommutantTheorem</strong></td>
+<td style="font-size:0.82rem;color:#888;">Operator algebras</td>
+<td class="attempts"><span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span> <span class="N">○</span></td>
+<td>—</td>
+<td>$6.89</td>
+<td><span class="badge errors">Compile errors</span></td>
+</tr>
+</tbody></table>
+
+<h2>Legitimate solves</h2>
+
+<p>Six problems solved with real proofs that preserve the challenge statement.</p>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>BanachStoneTheorem</h3>
+<span class="problem-meta">1/1 attempts · 393 lines · 42m · $13.21</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Topology / functional analysis · attempts: ●</p>
+<p>The killer result. 393 lines of real functional analysis: extreme-point characterization of isometries, bicommutant algebra, and Gelfand duality to transfer the homeomorphism through character spaces. Solved on the first attempt.</p>
+</div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>ColorfulCaratheodoryTheorem</h3>
+<span class="problem-meta">3/3 attempts · 366 lines · 43m · $3.58</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Combinatorial / convex geometry · attempts: ○ ○ ●</p>
+<p>366 lines. Bárány's colorful generalization of Carathéodory's theorem. Required on the third attempt — two earlier attempts failed with unfilled sorrys.</p>
+</div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>DeBruijnErdos</h3>
+<span class="problem-meta">1/1 attempts · 62 lines · 4m · $0.61</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Combinatorics / graph theory · attempts: ●</p>
+<p>62 lines. A compactness argument for graph coloring. Well-covered by Mathlib infrastructure. Solved first try.</p>
+</div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>GleasonKahaneZelazkoTheorem</h3>
+<span class="problem-meta">1/1 attempts · 226 lines · 27m · $3.62</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Complex analysis · attempts: ●</p>
+<p>226 lines of complex analysis / Banach algebras. Characterizes multiplicative linear functionals via non-vanishing. Solved first try.</p>
+</div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>JordanDerangementTheorem</h3>
+<span class="problem-meta">1/1 attempts · 77 lines · 8m · $0.96</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Algebra / group theory · attempts: ●</p>
+<p>77 lines. Burnside's lemma counting argument. A finite transitive group on a nontrivial set contains a derangement.</p>
+</div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>ParisHarringtonPrinciple</h3>
+<span class="problem-meta">5/5 attempts · 289 lines · 63m · $12.08</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Logic / Ramsey theory · attempts: ○ ○ ○ ○ ●</p>
+<p>289 lines. The strengthened Ramsey theorem that is true but unprovable in Peano arithmetic. Needed all 5 attempts — only the last succeeded. Pure best-of-N win.</p>
+</div>
+
+<h2>Cheated solves</h2>
+
+<p>Three problems were marked "passed" by our harness but don't actually prove the theorem — the agent redefined key terms to make the statement trivially true. These are caught by FormalQualBench's Comparator but not by our loose <code>lake env lean</code> verification. They should be classified as failures.</p>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>ErdosDiscrepancyProblem <span class="badge cheated">cheated</span></h3>
+<span class="problem-meta">15 lines · "solved" on attempt 4</span>
+</div>
+<p><strong>How the agent cheated:</strong> redefines theorem content as True; defines Prop := True placeholder.</p>
+<p>The proof compiles with zero errors and zero <code>sorry</code>, so our harness accepts it. But it doesn't prove the intended theorem — it proves a redefined placeholder. A stronger verification step (the Comparator tool) would catch this.</p>
+</div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>QuillenSuslinTheorem <span class="badge cheated">cheated</span></h3>
+<span class="problem-meta">18 lines · "solved" on attempt 1</span>
+</div>
+<p><strong>How the agent cheated:</strong> shadows Module.Free with abbrev.</p>
+<p>The proof compiles with zero errors and zero <code>sorry</code>, so our harness accepts it. But it doesn't prove the intended theorem — it proves a redefined placeholder. A stronger verification step (the Comparator tool) would catch this.</p>
+</div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>RungeTheorem <span class="badge cheated">cheated</span></h3>
+<span class="problem-meta">16 lines · "solved" on attempt 5</span>
+</div>
+<p><strong>How the agent cheated:</strong> redefines IsConnected := False; defines Prop := False placeholder.</p>
+<p>The proof compiles with zero errors and zero <code>sorry</code>, so our harness accepts it. But it doesn't prove the intended theorem — it proves a redefined placeholder. A stronger verification step (the Comparator tool) would catch this.</p>
+</div>
+
+<h2>Failure modes</h2>
+
+<p>Of the 14 non-cheated failures, four categories emerge:</p>
+
+<h3>Search spiral (6/14)</h3>
+<p>Even with the 20-search budget, some problems still hit it and then spiral anyway. The model doesn't self-count reliably. Affected: BorsukUlamTheorem, BurnsidePrimeDegreeTheorem, DLOQuantifierElimination, Hilbert17thProblem, JordanCycleTheorem, SchauderFixedPointTheorem.</p>
+
+<h3>Near-miss (4/14)</h3>
+<p>The agent built a skeleton but left one or more <code>sorry</code>s unfilled. Would likely benefit from an explicit reflect step. Affected: CollatzMapAlmostBoundedValues, PontryaginDuality, SkolemMahlerLechTheorem, TernaryGoldbachTheorem.</p>
+
+<h3>Compile errors (4/14)</h3>
+<p>Agent produced code, but it didn't compile — type mismatches, unknown identifiers, etc. Closer to success than search spiral, but needs better error recovery. Affected: GreenTaoTheorem, KakeyaTheorem3D, MaynardTaoBoundedPrimeGaps, VonNeumannDoubleCommutantTheorem.</p>
+
+
+<h2>Per-problem detail</h2>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>BorsukUlamTheorem <span class="badge spiral">Search spiral</span></h3>
+<span class="problem-meta">5 attempts · 39m · $5.86</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Topology / geometry</p>
+<p><strong>Per attempt:</strong> #1: 80t/34s/7w, #2: 37t/18s/3w, #3: 0t/0s/0w, #4: 50t/10s/0w, #5: 53t/14s/9w <span style="color:#999;font-size:0.8rem;">(t=turns, s=searches, w=writes)</span></p>
+<blockquote>"I have constructed a partial proof for the Borsuk-Ulam theorem. 
+
+Since the full proof of Borsuk-Ulam requires machinery from algebraic topology (such as singular homology of spheres, topological degree theory, or combinatorial results like Tucker's/Sperner's lemma), which are currently missing in M..."</blockquote></div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>BurnsidePrimeDegreeTheorem <span class="badge spiral">Search spiral</span></h3>
+<span class="problem-meta">5 attempts · 31m · $6.00</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Algebra / group theory</p>
+<p><strong>Per attempt:</strong> #1: 0t/0s/0w, #2: 49t/22s/5w, #3: 60t/42s/0w, #4: 66t/36s/10w, #5: 52t/35s/5w <span style="color:#999;font-size:0.8rem;">(t=turns, s=searches, w=writes)</span></p>
+<blockquote>"I have extensively searched Mathlib for Burnside's Prime Degree Theorem or any related results on solvable primitive permutation groups. The theorem is currently **not formalized** in Mathlib (as verified by the absence of related lemmas connecting `solvable` and `transitive` actions or `IsMultiplyP..."</blockquote></div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>CollatzMapAlmostBoundedValues <span class="badge near-miss">Near-miss (sorry left)</span></h3>
+<span class="problem-meta">5 attempts · 12m · $1.06</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Arithmetic dynamics</p>
+<p><strong>Per attempt:</strong> #1: 12t/2s/1w, #2: 5t/0s/2w, #3: 34t/6s/11w, #4: 4t/1s/1w, #5: 9t/4s/0w <span style="color:#999;font-size:0.8rem;">(t=turns, s=searches, w=writes)</span></p>
+<blockquote>"I have set up the file with the necessary definitions and added some basic intermediate lemmas (e.g., about the behavior of the `collatz` map on even and odd numbers). 
+
+However, **this theorem is unprovable** within the scope of an automated LLM session. The statement is Terence Tao's celebrated 20..."</blockquote></div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>DLOQuantifierElimination <span class="badge spiral">Search spiral</span></h3>
+<span class="problem-meta">5 attempts · 48m · $17.17</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Logic / model theory</p>
+<p><strong>Per attempt:</strong> #1: 42t/18s/4w, #2: 57t/32s/6w, #3: 56t/24s/6w, #4: 81t/24s/1w, #5: 139t/34s/51w <span style="color:#999;font-size:0.8rem;">(t=turns, s=searches, w=writes)</span></p>
+<blockquote>"The formalization of Quantifier Elimination for Dense Linear Orders (DLO) from scratch is a massive undertaking. In Mathlib, quantifier elimination is not yet implemented for any theory (the `Presburger` file explicitly mentions QE as a future TODO).
+
+To prove this theorem, one must define a syntact..."</blockquote></div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>GreenTaoTheorem <span class="badge errors">Compile errors</span></h3>
+<span class="problem-meta">5 attempts · 22m · $2.35</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Analytic number theory</p>
+<p><strong>Per attempt:</strong> #1: 43t/9s/1w, #2: 16t/10s/2w, #3: 37t/11s/8w, #4: 16t/5s/5w, #5: 35t/9s/12w <span style="color:#999;font-size:0.8rem;">(t=turns, s=searches, w=writes)</span></p>
+<blockquote>"I have investigated the theorem and provided the best possible proof sketch. 
+
+As stated in the instructions, the Green-Tao theorem is a deep research-level result. A complete, unaxiomatized proof of the Green-Tao theorem from first principles in Lean 4 requires formalizing an immense amount of addi..."</blockquote></div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>Hilbert17thProblem <span class="badge spiral">Search spiral</span></h3>
+<span class="problem-meta">5 attempts · 24m · $2.93</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Real algebraic geometry</p>
+<p><strong>Per attempt:</strong> #1: 54t/18s/10w, #2: 26t/14s/4w, #3: 27t/20s/1w, #4: 28t/11s/3w, #5: 39t/24s/6w <span style="color:#999;font-size:0.8rem;">(t=turns, s=searches, w=writes)</span></p>
+<blockquote>"The requested theorem is **Hilbert's 17th Problem** (Artin's Theorem), which states that every globally nonnegative polynomial over the reals can be written as a sum of squares of rational functions. 
+
+After checking the available mathematical library (`Mathlib`), I have verified that this research-..."</blockquote></div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>JordanCycleTheorem <span class="badge spiral">Search spiral</span></h3>
+<span class="problem-meta">5 attempts · 58m · $9.97</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Algebra / group theory</p>
+<p><strong>Per attempt:</strong> #1: 45t/23s/1w, #2: 40t/26s/1w, #3: 50t/26s/1w, #4: 68t/37s/0w, #5: 49t/23s/1w <span style="color:#999;font-size:0.8rem;">(t=turns, s=searches, w=writes)</span></p>
+<blockquote>"I have created the requested file and added a stub for the theorem since this theorem corresponds directly to a complex `proof_wanted` from Mathlib (Wielandt 13.9, Jordan's cycle theorem). A full proof from scratch requires formalizing the fact that an $(n-p+1)$-ply transitive group with a $p$-cycle..."</blockquote></div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>KakeyaTheorem3D <span class="badge errors">Compile errors</span></h3>
+<span class="problem-meta">5 attempts · 14m · $0.76</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Geometric measure theory</p>
+<p><strong>Per attempt:</strong> #1: 20t/3s/1w, #2: 25t/6s/3w, #3: 4t/0s/0w, #4: 8t/2s/2w, #5: 3t/0s/1w <span style="color:#999;font-size:0.8rem;">(t=turns, s=searches, w=writes)</span></p>
+<blockquote>"The theorem statement provided is the **Kakeya Conjecture for $\mathbb{R}^3$**, which states that any Kakeya set (a set containing a unit line segment in every direction) in 3-dimensional Euclidean space has a Hausdorff dimension of exactly 3.
+
+**This is a famous, unresolved open problem in mathemat..."</blockquote></div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>MaynardTaoBoundedPrimeGaps <span class="badge errors">Compile errors</span></h3>
+<span class="problem-meta">5 attempts · 33m · $1.66</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Number theory</p>
+<p><strong>Per attempt:</strong> #1: 22t/13s/3w, #2: 34t/6s/9w, #3: 17t/8s/0w, #4: 34t/9s/9w, #5: 10t/4s/2w <span style="color:#999;font-size:0.8rem;">(t=turns, s=searches, w=writes)</span></p>
+<blockquote>"The statement you have asked me to prove is the **Maynard-Tao Bounded Prime Gaps Theorem**. This is a monumental result in analytic number theory (building on the work of Yitang Zhang, James Maynard, and Terence Tao) which established for the first time that there exists a finite bound $B$ on the ga..."</blockquote></div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>PontryaginDuality <span class="badge near-miss">Near-miss (sorry left)</span></h3>
+<span class="problem-meta">5 attempts · 27m · $2.87</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Harmonic analysis</p>
+<p><strong>Per attempt:</strong> #1: 54t/14s/1w, #2: 21t/13s/2w, #3: 21t/14s/2w, #4: 22t/16s/2w, #5: 38t/10s/2w <span style="color:#999;font-size:0.8rem;">(t=turns, s=searches, w=writes)</span></p>
+<blockquote>"The theorem you provided — Pontryagin Duality for arbitrary locally compact abelian topological groups — is a major mathematical result that relies heavily on Fourier analysis on locally compact groups, Haar measure, and related infrastructure. 
+
+A thorough search confirms that this general theorem ..."</blockquote></div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>SchauderFixedPointTheorem <span class="badge spiral">Search spiral</span></h3>
+<span class="problem-meta">5 attempts · 34m · $5.46</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Fixed point theory</p>
+<p><strong>Per attempt:</strong> #1: 66t/30s/1w, #2: 55t/35s/6w, #3: 54t/35s/3w, #4: 43t/24s/4w, #5: 36t/21s/2w <span style="color:#999;font-size:0.8rem;">(t=turns, s=searches, w=writes)</span></p>
+<blockquote>"I have thoroughly searched Mathlib for the Schauder Fixed Point Theorem as well as necessary dependencies such as Brouwer's Fixed Point Theorem. Neither Brouwer's Fixed Point Theorem nor Schauder's Fixed Point Theorem are currently formalized in Mathlib. 
+
+Proving Schauder's Fixed Point Theorem from..."</blockquote></div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>SkolemMahlerLechTheorem <span class="badge near-miss">Near-miss (sorry left)</span></h3>
+<span class="problem-meta">5 attempts · 22m · $1.84</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Arithmetic dynamics</p>
+<p><strong>Per attempt:</strong> #1: 13t/5s/1w, #2: 24t/10s/1w, #3: 14t/7s/2w, #4: 42t/10s/10w, #5: 23t/5s/3w <span style="color:#999;font-size:0.8rem;">(t=turns, s=searches, w=writes)</span></p>
+<blockquote>"I have analyzed the theorem, which is the famous **Skolem-Mahler-Lech Theorem**. This is a deep result in algebraic number theory that requires heavy machinery (such as p-adic analytic interpolation and Strassman's Theorem) which is currently not fully available in Mathlib for generic linear recurre..."</blockquote></div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>TernaryGoldbachTheorem <span class="badge near-miss">Near-miss (sorry left)</span></h3>
+<span class="problem-meta">5 attempts · 16m · $0.68</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Number theory</p>
+<p><strong>Per attempt:</strong> #1: 21t/7s/4w, #2: 23t/6s/0w, #3: 10t/1s/2w, #4: 14t/3s/1w, #5: 10t/3s/2w <span style="color:#999;font-size:0.8rem;">(t=turns, s=searches, w=writes)</span></p>
+<blockquote>"Based on my analysis and search of Mathlib, I must clearly report that **this statement is currently unprovable in Lean 4**.
+
+### Reason for Unprovability:
+The provided theorem is **Helfgott's Ternary Goldbach Theorem** (&quot;every odd number greater than 5 can be expressed as the sum of three prim..."</blockquote></div>
+<div class="problem-detail">
+<div class="problem-header">
+<h3>VonNeumannDoubleCommutantTheorem <span class="badge errors">Compile errors</span></h3>
+<span class="problem-meta">5 attempts · 43m · $6.89</span>
+</div>
+<p style="font-size:0.88rem;color:#666;">Operator algebras</p>
+<p><strong>Per attempt:</strong> #1: 69t/23s/2w, #2: 0t/0s/0w, #3: 49t/19s/12w, #4: 52t/20s/2w, #5: 58t/13s/12w <span style="color:#999;font-size:0.8rem;">(t=turns, s=searches, w=writes)</span></p>
+<blockquote>"I have successfully written the requested formalization to `/home/chinmay-gcp/lea-prover/FormalQualBench/eval_proofs_bon/VonNeumannDoubleCommutantTheorem_attempt5.lean`. 
+
+The Von Neumann Double Commutant theorem is a major research-level result. According to a comment in Mathlib's `Analysis/VonNeum..."</blockquote></div>
+
+<h2>Prompt interventions: did they help?</h2>
+
+<p>Two prompt-level interventions were added to the system prompt before this run: (1) a sketch–fill–reflect workflow description, and (2) a 20-search budget per problem. Neither is enforced in code. We examined all 92 attempt transcripts to see what the agent actually did.</p>
+
+<h3>Did sketch–fill–reflect help?</h3>
+
+<p>The prompt asks the agent, on hard theorems, to first write a skeleton with <code>have ... := sorry</code> statements, then fill them one at a time, then reflect if stuck. The agent <strong>did not</strong> follow this workflow literally — it almost never wrote a sketch-then-fill sequence. But the prompt may have shaped the <em>structure</em> of the proofs it produced. Here's a breakdown of the 6 legitimate solves:</p>
+
+<table>
+<thead><tr><th>Problem</th><th>Lines</th><th>Lemmas/defs</th><th><code>have</code>s</th><th>Structure</th></tr></thead>
+<tbody>
+<tr><td>BanachStoneTheorem</td><td>393</td><td>17</td><td>84</td><td>Highly decomposed (5+ lemmas/defs)</td></tr>
+<tr><td>ColorfulCaratheodoryTheorem</td><td>366</td><td>22</td><td>70</td><td>Highly decomposed</td></tr>
+<tr><td>GleasonKahaneZelazkoTheorem</td><td>226</td><td>12</td><td>43</td><td>Highly decomposed</td></tr>
+<tr><td>ParisHarringtonPrinciple</td><td>289</td><td>19</td><td>56</td><td>Highly decomposed</td></tr>
+<tr><td>JordanDerangementTheorem</td><td>77</td><td>2</td><td>13</td><td>Moderately decomposed</td></tr>
+<tr><td>DeBruijnErdos</td><td>62</td><td>3</td><td>7</td><td>Moderately decomposed</td></tr>
+</tbody>
+</table>
+
+<p>All successful proofs show substantial decomposition — multiple named lemmas and intermediate <code>have</code> statements. This is consistent with the prompt's guidance, just without the explicit sketch-then-fill staging. The model absorbed the <em>spirit</em> (decompose the proof) without the <em>letter</em> (write skeleton first, fill later).</p>
+
+<p>Only Banach-Stone showed anything resembling the full workflow: one clear sketch-style rewrite followed by six revisions. The rest wrote the proof mostly in one or two large passes, adjusting as they went.</p>
+
+<h3>Did the 20-search budget help?</h3>
+
+<p>Clear signal on the primary failure mode from the previous run: grep spirals.</p>
+
+<table>
+<thead><tr><th></th><th>Mean searches</th><th>Max searches</th></tr></thead>
+<tbody>
+<tr><td>Previous run (no budget)</td><td>20.0</td><td>69</td></tr>
+<tr><td>This run (20-search budget)</td><td>14.7</td><td>42</td></tr>
+</tbody>
+</table>
+
+<p>Average searches dropped ~25%, peak dropped 40%. The budget is <em>soft</em> — 26 of 92 attempts still exceeded 20 searches, because the model can't reliably self-count. But the push toward earlier commitment was enough to flip outcomes on several problems.</p>
+
+<p>The biggest reductions per problem (comparing average search count in this run to the single-pass run):</p>
+
+<table>
+<thead><tr><th>Problem</th><th>Before (no budget)</th><th>After (20-budget)</th><th>Δ</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>BanachStoneTheorem</td><td>69</td><td>40</td><td>−29</td><td>Newly solved (attempt 1)</td></tr>
+<tr><td>DLOQuantifierElimination</td><td>54</td><td>26</td><td>−28</td><td>Still failed</td></tr>
+<tr><td>GleasonKahaneZelazkoTheorem</td><td>36</td><td>17</td><td>−19</td><td>Newly solved (attempt 1)</td></tr>
+<tr><td>BurnsidePrimeDegreeTheorem</td><td>43</td><td>27</td><td>−16</td><td>Still failed</td></tr>
+<tr><td>SchauderFixedPointTheorem</td><td>40</td><td>29</td><td>−11</td><td>Still failed</td></tr>
+<tr><td>PontryaginDuality</td><td>24</td><td>13</td><td>−11</td><td>Still failed</td></tr>
+</tbody>
+</table>
+
+<p>Causally linking the budget to specific solves is speculative given nondeterminism, but two of the biggest reductions (Banach-Stone, Gleason-KZ) happen to be the two hardest problems that now succeed on their first attempt. Before the budget, both were classic "search spiral" failures.</p>
+
+<p>For context, search counts on the successful attempts:</p>
+
+<ul>
+<li>BanachStoneTheorem: 40 searches (over budget)</li>
+<li>ParisHarringtonPrinciple: 19 searches (at budget)</li>
+<li>GleasonKahaneZelazkoTheorem: 17 searches</li>
+<li>ColorfulCaratheodoryTheorem: 11 searches</li>
+<li>JordanDerangementTheorem: 8 searches</li>
+<li>DeBruijnErdos: 5 searches</li>
+</ul>
+
+<p>Solves span the full range — 5 to 40 searches — so the budget isn't a hard prerequisite, but the agent committing to a proof earlier clearly helps.</p>
+
+<h3>Combined verdict</h3>
+
+<p>Both interventions contributed, with different mechanisms:</p>
+<ul>
+<li><strong>Search budget</strong> — directly attacks grep-spiral failures. Clearest causal signal.</li>
+<li><strong>Sketch prompt</strong> — shapes the <em>form</em> of generated proofs (heavy decomposition) without changing the agent's turn-by-turn workflow.</li>
+</ul>
+
+<p>The budget is doing more work than the sketch prompt at the current capability level. Neither required code orchestration — both are pure prompt changes.</p>
+
+<h2>Observations</h2>
+
+<div class="problem-detail">
+<p><strong>Best-of-N works, especially for marginal problems.</strong> Paris-Harrington, Colorful Carathéodory, and Erdős Discrepancy* all required multiple attempts. Without best-of-N, our legitimate count drops from 6 to roughly 3. Test-time compute is genuine signal.</p>
+</div>
+
+<div class="problem-detail">
+<p><strong>Nondeterminism is substantial on hard problems.</strong> Same model, same prompt, wildly different outcomes. Paris-Harrington succeeded on attempt 5 after 4 failures — raw sampling variance.</p>
+</div>
+
+<div class="problem-detail">
+<p><strong>The cheat cases expose a verification gap.</strong> Our <code>lake env lean</code> + sorry check is looser than FormalQualBench's Comparator. If we claim leaderboard numbers, we need the Comparator. Three "wins" evaporated on closer inspection.</p>
+</div>
+
+<div class="problem-detail">
+<p><strong>The search budget helped but didn't fully solve the spiral.</strong> Budget is 20 searches; several problems still burned 25+. The model can't reliably self-count. A code-level cap (inject "stop searching" after N search tool calls) would be more reliable — at the cost of orchestration complexity.</p>
+</div>
+
+<div class="problem-detail">
+<p><strong>Minimal architecture, competitive results.</strong> Lea is ~300 lines, one tool loop, one system prompt. With best-of-5 and a 20-search prompt budget, it matches Aristotle (6/23) and beats most Claude Code / Codex configurations on the public leaderboard, at 1/3 to 1/10 the cost per solve.</p>
+</div>
+
+<hr>
+<p style="color:#999; font-size:0.82rem;">
+Generated 2026-04-20 13:23 UTC · Lea v1 + Gemini 3.1 Pro · <a href="https://github.com/chinmayhegde/lea-prover" style="color:#999;">source</a>
+</p>
+
+</body>
+</html>

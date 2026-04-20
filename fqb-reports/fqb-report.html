@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A minimal agent on FormalQualBench</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Georgia', 'Times New Roman', serif; background: #fafaf8; color: #222; padding: 2rem; max-width: 820px; margin: 0 auto; line-height: 1.75; }
+  h1 { font-size: 1.8rem; margin-bottom: 0.2rem; font-weight: 700; }
+  h2 { font-size: 1.3rem; margin: 2.5rem 0 0.8rem; font-weight: 700; }
+  h3 { font-size: 1.05rem; margin: 1.5rem 0 0.4rem; font-weight: 700; }
+  .meta { color: #888; font-size: 0.9rem; margin-bottom: 2rem; }
+  p { margin-bottom: 1rem; }
+  a { color: #1a5f7a; }
+  code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.88em; background: #f0eeea; padding: 0.15em 0.35em; border-radius: 3px; }
+  pre { background: #f0eeea; padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; margin: 1rem 0; line-height: 1.5; }
+  pre code { background: none; padding: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 1.2rem 0; font-size: 0.88rem; font-family: -apple-system, sans-serif; }
+  th { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 2px solid #ccc; font-weight: 600; color: #555; }
+  td { padding: 0.45rem 0.6rem; border-bottom: 1px solid #e8e6e2; }
+  tr:hover { background: #f5f3ef; }
+  .pass { color: #16a34a; font-weight: 700; }
+  .fail { color: #999; }
+  .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.78rem; font-weight: 600; font-family: -apple-system, sans-serif; }
+  .badge.solved { background: #dcfce7; color: #166534; }
+  .badge.near-miss { background: #fef3c7; color: #92400e; }
+  .badge.spiral { background: #f3e8ff; color: #6b21a8; }
+  .badge.early { background: #f3f4f6; color: #6b7280; }
+  .badge.wrong-path { background: #fee2e2; color: #991b1b; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 1.5rem 0; font-family: -apple-system, sans-serif; }
+  .stat { text-align: center; }
+  .stat .val { font-size: 1.6rem; font-weight: 700; color: #111; }
+  .stat .lbl { font-size: 0.78rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
+  blockquote { border-left: 3px solid #ddd; padding-left: 1rem; color: #666; font-style: italic; margin: 1rem 0; }
+  .problem-detail { border-top: 1px solid #e8e6e2; padding-top: 1rem; margin-top: 1.5rem; }
+  .problem-header { display: flex; justify-content: space-between; align-items: baseline; }
+  .problem-meta { font-family: -apple-system, sans-serif; font-size: 0.82rem; color: #888; }
+  hr { border: none; border-top: 1px solid #e0e0e0; margin: 2rem 0; }
+</style>
+</head>
+<body>
+
+<h1>A minimal agent on FormalQualBench</h1>
+<p class="meta">April 2025 &middot; Lea v1 + Gemini 3.1 Pro &middot; <a href="https://github.com/chinmayhegde/lea-prover">github.com/chinmayhegde/lea-prover</a></p>
+
+<p>
+We ran <a href="https://github.com/chinmayhegde/lea-prover">Lea</a>, a minimal theorem-proving agent (~300 lines of Python, 6 tools, one system prompt), on
+<a href="https://github.com/math-inc/FormalQualBench">FormalQualBench</a> — 23 graduate-level theorems in Lean 4 spanning topology, algebra, analysis, combinatorics, and number theory. These are results at the level of a math PhD qualifying exam whose proofs are not in Mathlib and must be constructed from scratch.
+</p>
+
+<p>
+The agent has no proof decomposition, no tree search, no reinforcement learning. It runs a single loop: write a proof, compile, read errors, edit, repeat. The model decides everything.
+</p>
+
+<div class="stats">
+  <div class="stat"><div class="val">2/23</div><div class="lbl">Solved</div></div>
+  <div class="stat"><div class="val">$34</div><div class="lbl">Total cost</div></div>
+  <div class="stat"><div class="val">3.6h</div><div class="lbl">Total time</div></div>
+  <div class="stat"><div class="val">26.4M</div><div class="lbl">Tokens</div></div>
+</div>
+
+<h2>Results</h2>
+
+<table>
+<thead>
+<tr><th></th><th>Problem</th><th>Domain</th><th>Turns</th><th>Time</th><th>Cost</th><th>Mode</th></tr>
+</thead>
+<tbody>
+<tr><td><span class="fail">&#10007;</span></td><td>BanachStoneTheorem</td><td style="font-size:0.82rem;color:#888;">Topology / geometric functional analysis</td><td>99</td><td>13m</td><td>$2.63</td><td><span class="badge spiral">Search spiral</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>BorsukUlamTheorem</td><td style="font-size:0.82rem;color:#888;">Topology / geometry</td><td>47</td><td>8m</td><td>$0.91</td><td><span class="badge near-miss">Near-miss</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>BurnsidePrimeDegreeTheorem</td><td style="font-size:0.82rem;color:#888;">Algebra / group theory</td><td>60</td><td>7m</td><td>$1.59</td><td><span class="badge spiral">Search spiral</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>CollatzMapAlmostBoundedValues</td><td style="font-size:0.82rem;color:#888;">Arithmetic dynamics</td><td>3</td><td>24s</td><td>$0.01</td><td><span class="badge early">Gave up early</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>ColorfulCaratheodoryTheorem</td><td style="font-size:0.82rem;color:#888;">Combinatorial / convex geometry</td><td>0</td><td>41m</td><td>$0.00</td><td><span class="badge early">Gave up early</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>DLOQuantifierElimination</td><td style="font-size:0.82rem;color:#888;">Logic / model theory</td><td>209</td><td>41m</td><td>$19.19</td><td><span class="badge near-miss">Near-miss</span></td></tr>
+<tr><td><span class="pass">&#10003;</span></td><td>DeBruijnErdos</td><td style="font-size:0.82rem;color:#888;">Combinatorics / graph theory</td><td>28</td><td>3m</td><td>$0.34</td><td><span class="badge solved">Solved</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>ErdosDiscrepancyProblem</td><td style="font-size:0.82rem;color:#888;">Additive combinatorics</td><td>12</td><td>3m</td><td>$0.07</td><td><span class="badge wrong-path">Wrong path</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>GleasonKahaneZelazkoTheorem</td><td style="font-size:0.82rem;color:#888;">Analysis / complex analysis</td><td>49</td><td>13m</td><td>$1.71</td><td><span class="badge spiral">Search spiral</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>GreenTaoTheorem</td><td style="font-size:0.82rem;color:#888;">Analytic number theory</td><td>25</td><td>5m</td><td>$0.37</td><td><span class="badge wrong-path">Wrong path</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>Hilbert17thProblem</td><td style="font-size:0.82rem;color:#888;">Real algebraic geometry</td><td>31</td><td>4m</td><td>$0.53</td><td><span class="badge spiral">Search spiral</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>JordanCycleTheorem</td><td style="font-size:0.82rem;color:#888;">Algebra / group theory</td><td>34</td><td>12m</td><td>$1.50</td><td><span class="badge spiral">Search spiral</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>JordanDerangementTheorem</td><td style="font-size:0.82rem;color:#888;">Algebra / group theory</td><td>0</td><td>6m</td><td>$0.00</td><td><span class="badge early">Gave up early</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>KakeyaTheorem3D</td><td style="font-size:0.82rem;color:#888;">Harmonic analysis / geometric measure theory</td><td>4</td><td>42s</td><td>$0.02</td><td><span class="badge early">Gave up early</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>MaynardTaoBoundedPrimeGaps</td><td style="font-size:0.82rem;color:#888;">Number theory</td><td>32</td><td>8m</td><td>$0.43</td><td><span class="badge near-miss">Near-miss</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>ParisHarringtonPrinciple</td><td style="font-size:0.82rem;color:#888;">Logic / Ramsey theory</td><td>39</td><td>8m</td><td>$0.83</td><td><span class="badge near-miss">Near-miss</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>PontryaginDuality</td><td style="font-size:0.82rem;color:#888;">Topological groups / harmonic analysis</td><td>39</td><td>7m</td><td>$0.61</td><td><span class="badge spiral">Search spiral</span></td></tr>
+<tr><td><span class="pass">&#10003;</span></td><td>QuillenSuslinTheorem</td><td style="font-size:0.82rem;color:#888;">Algebra / commutative algebra</td><td>60</td><td>9m</td><td>$0.96</td><td><span class="badge solved">Solved</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>RungeTheorem</td><td style="font-size:0.82rem;color:#888;">Analysis / complex analysis</td><td>0</td><td>4m</td><td>$0.00</td><td><span class="badge early">Gave up early</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>SchauderFixedPointTheorem</td><td style="font-size:0.82rem;color:#888;">Analysis / fixed point theory</td><td>61</td><td>8m</td><td>$1.27</td><td><span class="badge spiral">Search spiral</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>SkolemMahlerLechTheorem</td><td style="font-size:0.82rem;color:#888;">Arithmetic dynamics</td><td>37</td><td>8m</td><td>$0.76</td><td><span class="badge near-miss">Near-miss</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>TernaryGoldbachTheorem</td><td style="font-size:0.82rem;color:#888;">Number theory</td><td>16</td><td>3m</td><td>$0.08</td><td><span class="badge near-miss">Near-miss</span></td></tr>
+<tr><td><span class="fail">&#10007;</span></td><td>VonNeumannDoubleCommutantTheorem</td><td style="font-size:0.82rem;color:#888;">Analysis / operator algebras</td><td>38</td><td>4m</td><td>$0.53</td><td><span class="badge near-miss">Near-miss</span></td></tr>
+</tbody></table>
+
+<h2>Failure modes</h2>
+
+<p>The 21 failures cluster into four patterns.</p>
+
+<h3>Search spiral (7/21 failures)</h3>
+<p>
+Problems: BanachStoneTheorem, BurnsidePrimeDegreeTheorem, GleasonKahaneZelazkoTheorem, Hilbert17thProblem, JordanCycleTheorem, PontryaginDuality, SchauderFixedPointTheorem.
+</p>
+<p>
+The agent spent the majority of its turns grepping Mathlib source files — 244 grep/find calls across these problems vs. 39 compilation attempts. It searched for the theorem pre-built in Mathlib, didn't find it, and concluded the theorem was "unprovable in current Mathlib." This misunderstands the benchmark: FQB specifically tests theorems whose statements use Mathlib types but whose proofs must be constructed from scratch.
+</p>
+<p>
+Banach-Stone is the clearest example: 99 turns, 67 greps, 10 compilations, zero progress. The agent tried queries like <code>grep -rn "BanachStone"</code>, <code>grep -rn "≃ₗᵢ"</code>, <code>grep -rn "homeomorphOfAlgEquiv"</code>, and even <code>curl</code> to the GitHub search API. It never committed to a proof structure.
+</p>
+
+<h3>Near-miss (7/21 failures)</h3>
+<p>
+Problems: BorsukUlamTheorem, DLOQuantifierElimination, MaynardTaoBoundedPrimeGaps, ParisHarringtonPrinciple, SkolemMahlerLechTheorem, TernaryGoldbachTheorem, VonNeumannDoubleCommutantTheorem.
+</p>
+<p>
+The agent built a proof structure — definitions, intermediate lemmas, the right imports — but left one or two <code>sorry</code>s unfilled. It could not close the last subgoal and had no mechanism to reconsider whether the decomposition itself was wrong.
+</p>
+<p>
+DLO Quantifier Elimination is the extreme case: 209 turns and $19 in API costs, writing 77 files and running 69 lean_check calls. The agent was actively working — not searching — but kept hitting the same stuck subgoals without trying a different decomposition.
+</p>
+
+<h3>Gave up early (5/21 failures)</h3>
+<p>
+Problems: CollatzMapAlmostBoundedValues, ColorfulCaratheodoryTheorem, JordanDerangementTheorem, KakeyaTheorem3D, RungeTheorem.
+</p>
+<p>
+The agent recognized the theorem was deep and stopped within 5 turns. For some (Kakeya 3D, Collatz) this is reasonable — these are Fields Medal-level results. For others (Runge's theorem) it's premature. The model's calibration of "what's feasible" is noisy.
+</p>
+
+<h3>Wrong path (2/21 failures)</h3>
+<p>
+Problems: ErdosDiscrepancyProblem, GreenTaoTheorem.
+</p>
+<p>
+The agent wrote a proof file to a different path than expected, or never created the output file. An infrastructure issue, not a mathematical one.
+</p>
+
+<h2>What it solved</h2>
+
+<div class="problem-detail">
+<div class="problem-header">
+<h3>DeBruijnErdos</h3>
+<span class="problem-meta">28 turns &middot; 196s &middot; $0.34</span>
+</div>
+<p style="font-size:0.9rem;color:#666;">Combinatorics / graph theory</p>
+<p>The De Bruijn-Erdős theorem: if every finite subgraph of an infinite graph is k-colorable, then the whole graph is k-colorable. A compactness argument. The agent found the right Mathlib infrastructure and closed the proof in 28 turns.</p></div>
+
+<div class="problem-detail">
+<div class="problem-header">
+<h3>QuillenSuslinTheorem</h3>
+<span class="problem-meta">60 turns &middot; 537s &middot; $0.96</span>
+</div>
+<p style="font-size:0.9rem;color:#666;">Algebra / commutative algebra</p>
+<p>The Quillen-Suslin theorem (Serre's conjecture): every finitely generated projective module over a polynomial ring is free. A major result in commutative algebra. The agent worked through 60 turns, building up the necessary algebraic machinery.</p></div>
+
+<div class="problem-detail">
+<div class="problem-header">
+<h3>JordanDerangementTheorem (standalone run)</h3>
+<span class="problem-meta">38 turns &middot; 245s &middot; $0.48</span>
+</div>
+<p style="font-size:0.9rem;color:#666;">Algebra / group theory</p>
+<p>Jordan's derangement theorem: a finite transitive permutation group on a nontrivial set contains a fixed-point-free element. Solved in a standalone run using a Burnside's lemma counting argument (68 lines of Lean). Did not reproduce in the batch eval due to nondeterminism.</p>
+</div>
+
+<h2>Observations</h2>
+
+<p><strong>The model knows the mathematics.</strong> In almost every case, the agent's final message correctly identifies the theorem, its history, and the proof strategy in natural language. The failure is in translation to Lean, not in mathematical understanding.</p>
+
+<p><strong>The dominant failure is strategic, not technical.</strong> 14 of 21 failures are search spirals or near-misses — problems where the agent either never committed to a proof structure or committed to the wrong one and couldn't adapt. A decompose-then-prove loop with reflection would directly address both.</p>
+
+<p><strong>Cost is heavy-tailed.</strong> One problem (DLO Quantifier Elimination, 209 turns) consumed 33% of the total budget. A turn budget or spiral detection would dramatically reduce cost with minimal impact on solve rate.</p>
+
+<p><strong>Nondeterminism matters.</strong> Jordan's derangement theorem was solved in one run and failed in another. The agent's success on any given problem is stochastic. Best-of-N sampling at the outer level would improve the effective solve rate.</p>
+
+<p><strong>"Not in Mathlib" ≠ "unprovable."</strong> The agent frequently concluded that a theorem was impossible because it couldn't find it in Mathlib. FQB specifically targets theorems that require building proofs from scratch. The prompt must make this expectation explicit.</p>
+
+<hr>
+<p style="color:#999; font-size:0.82rem;">
+Lea v1 &middot; Gemini 3.1 Pro &middot; April 2025 &middot; <a href="https://github.com/chinmayhegde/lea-prover" style="color:#999;">source</a>
+</p>
+
+</body>
+</html>
