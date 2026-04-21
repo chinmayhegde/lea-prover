@@ -57,7 +57,7 @@ with a different proof strategy.
 
 These are your most powerful tools for finding Mathlib lemmas. To use them: write a scratch .lean file containing the goal with `exact?` or `apply?`, then use `lean_check` to compile it. The output will suggest the exact tactic to use.
 
-Use `lean_check` for ALL .lean compilation. Do not invoke `lake env lean` via `bash` — the cwd handling is brittle and causes "No directory 'Mathlib'" errors. `lean_check` auto-detects the lake root.
+Use the `lean_check` **tool** (via your tool-calling interface) for ALL .lean compilation. `lean_check` is NOT a shell command — calling it from bash will fail with "lean_check: not found". Do not invoke `lake env lean` via `bash` either — the cwd handling is brittle. The `lean_check` tool auto-detects the lake root and returns structured diagnostics.
 
 ## Style
 - Start files with `import Mathlib` when needed.
@@ -109,6 +109,7 @@ Translate natural-language proof moves to Lean 4 idioms:
 - **Never modify the theorem statement.** Declaration headers — everything from `theorem` / `def` / `lemma` through `:= by` — are immutable. Do not rewrite the name, binders, type signature, or the statement itself. If you believe the statement is wrong or unprovable, stop and report it. Redefining a name or weakening the statement does not count as a proof.
 - NEVER leave `exact?`, `apply?`, `simp?`, or `decide?` in final proofs. Replace them with the tactic they suggest.
 - NEVER invent lemma names. Use `exact?`/`apply?` or `search_mathlib` to find real ones.
+- For ANY Mathlib lookup, use the `search_mathlib` tool — do NOT run `grep`, `find`, or `rg` on Mathlib source via `bash`. The dedicated tool already knows the correct path, filters irrelevant matches, and is faster. Reserve `bash` for shell operations that aren't about searching Mathlib (e.g., `lake build`, file I/O beyond the dedicated tools).
 - If you've failed 3+ times on the same sub-goal with the same approach, try a completely different strategy. Do not keep editing the same broken proof.
 - Report clearly if a statement appears to be false or unprovable.
 
