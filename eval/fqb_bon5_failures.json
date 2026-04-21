@@ -1,0 +1,114 @@
+[
+  {
+    "name": "BorsukUlamTheorem",
+    "mode": "Search spiral",
+    "n_attempts": 5,
+    "avg_turns": 44.0,
+    "avg_searches": 15.2,
+    "last_text_sample": "I have constructed a partial proof for the Borsuk-Ulam theorem. \n\nSince the full proof of Borsuk-Ulam requires machinery from algebraic topology (such as singular homology of spheres, topological degree theory, or combinatorial results like Tucker's/Sperner's lemma), which are currently missing in M"
+  },
+  {
+    "name": "BurnsidePrimeDegreeTheorem",
+    "mode": "Search spiral",
+    "n_attempts": 5,
+    "avg_turns": 45.4,
+    "avg_searches": 27.0,
+    "last_text_sample": "I have extensively searched Mathlib for Burnside's Prime Degree Theorem or any related results on solvable primitive permutation groups. The theorem is currently **not formalized** in Mathlib (as verified by the absence of related lemmas connecting `solvable` and `transitive` actions or `IsMultiplyP"
+  },
+  {
+    "name": "CollatzMapAlmostBoundedValues",
+    "mode": "Near-miss (sorry left)",
+    "n_attempts": 5,
+    "avg_turns": 12.8,
+    "avg_searches": 2.6,
+    "last_text_sample": "I have set up the file with the necessary definitions and added some basic intermediate lemmas (e.g., about the behavior of the `collatz` map on even and odd numbers). \n\nHowever, **this theorem is unprovable** within the scope of an automated LLM session. The statement is Terence Tao's celebrated 20"
+  },
+  {
+    "name": "DLOQuantifierElimination",
+    "mode": "Search spiral",
+    "n_attempts": 5,
+    "avg_turns": 75.0,
+    "avg_searches": 26.4,
+    "last_text_sample": "The formalization of Quantifier Elimination for Dense Linear Orders (DLO) from scratch is a massive undertaking. In Mathlib, quantifier elimination is not yet implemented for any theory (the `Presburger` file explicitly mentions QE as a future TODO).\n\nTo prove this theorem, one must define a syntact"
+  },
+  {
+    "name": "GreenTaoTheorem",
+    "mode": "Compile errors",
+    "n_attempts": 5,
+    "avg_turns": 29.4,
+    "avg_searches": 8.8,
+    "last_text_sample": "I have investigated the theorem and provided the best possible proof sketch. \n\nAs stated in the instructions, the Green-Tao theorem is a deep research-level result. A complete, unaxiomatized proof of the Green-Tao theorem from first principles in Lean 4 requires formalizing an immense amount of addi"
+  },
+  {
+    "name": "Hilbert17thProblem",
+    "mode": "Search spiral",
+    "n_attempts": 5,
+    "avg_turns": 34.8,
+    "avg_searches": 17.4,
+    "last_text_sample": "The requested theorem is **Hilbert's 17th Problem** (Artin's Theorem), which states that every globally nonnegative polynomial over the reals can be written as a sum of squares of rational functions. \n\nAfter checking the available mathematical library (`Mathlib`), I have verified that this research-"
+  },
+  {
+    "name": "JordanCycleTheorem",
+    "mode": "Search spiral",
+    "n_attempts": 5,
+    "avg_turns": 50.4,
+    "avg_searches": 27.0,
+    "last_text_sample": "I have created the requested file and added a stub for the theorem since this theorem corresponds directly to a complex `proof_wanted` from Mathlib (Wielandt 13.9, Jordan's cycle theorem). A full proof from scratch requires formalizing the fact that an $(n-p+1)$-ply transitive group with a $p$-cycle"
+  },
+  {
+    "name": "KakeyaTheorem3D",
+    "mode": "Compile errors",
+    "n_attempts": 5,
+    "avg_turns": 12.0,
+    "avg_searches": 2.2,
+    "last_text_sample": "The theorem statement provided is the **Kakeya Conjecture for $\\mathbb{R}^3$**, which states that any Kakeya set (a set containing a unit line segment in every direction) in 3-dimensional Euclidean space has a Hausdorff dimension of exactly 3.\n\n**This is a famous, unresolved open problem in mathemat"
+  },
+  {
+    "name": "MaynardTaoBoundedPrimeGaps",
+    "mode": "Compile errors",
+    "n_attempts": 5,
+    "avg_turns": 23.4,
+    "avg_searches": 8.0,
+    "last_text_sample": "The statement you have asked me to prove is the **Maynard-Tao Bounded Prime Gaps Theorem**. This is a monumental result in analytic number theory (building on the work of Yitang Zhang, James Maynard, and Terence Tao) which established for the first time that there exists a finite bound $B$ on the ga"
+  },
+  {
+    "name": "PontryaginDuality",
+    "mode": "Near-miss (sorry left)",
+    "n_attempts": 5,
+    "avg_turns": 31.2,
+    "avg_searches": 13.4,
+    "last_text_sample": "The theorem you provided \u2014 Pontryagin Duality for arbitrary locally compact abelian topological groups \u2014 is a major mathematical result that relies heavily on Fourier analysis on locally compact groups, Haar measure, and related infrastructure. \n\nA thorough search confirms that this general theorem "
+  },
+  {
+    "name": "SchauderFixedPointTheorem",
+    "mode": "Search spiral",
+    "n_attempts": 5,
+    "avg_turns": 50.8,
+    "avg_searches": 29.0,
+    "last_text_sample": "I have thoroughly searched Mathlib for the Schauder Fixed Point Theorem as well as necessary dependencies such as Brouwer's Fixed Point Theorem. Neither Brouwer's Fixed Point Theorem nor Schauder's Fixed Point Theorem are currently formalized in Mathlib. \n\nProving Schauder's Fixed Point Theorem from"
+  },
+  {
+    "name": "SkolemMahlerLechTheorem",
+    "mode": "Near-miss (sorry left)",
+    "n_attempts": 5,
+    "avg_turns": 23.2,
+    "avg_searches": 7.4,
+    "last_text_sample": "I have analyzed the theorem, which is the famous **Skolem-Mahler-Lech Theorem**. This is a deep result in algebraic number theory that requires heavy machinery (such as p-adic analytic interpolation and Strassman's Theorem) which is currently not fully available in Mathlib for generic linear recurre"
+  },
+  {
+    "name": "TernaryGoldbachTheorem",
+    "mode": "Near-miss (sorry left)",
+    "n_attempts": 5,
+    "avg_turns": 15.6,
+    "avg_searches": 4.0,
+    "last_text_sample": "Based on my analysis and search of Mathlib, I must clearly report that **this statement is currently unprovable in Lean 4**.\n\n### Reason for Unprovability:\nThe provided theorem is **Helfgott's Ternary Goldbach Theorem** (\"every odd number greater than 5 can be expressed as the sum of three primes\")."
+  },
+  {
+    "name": "VonNeumannDoubleCommutantTheorem",
+    "mode": "Compile errors",
+    "n_attempts": 5,
+    "avg_turns": 45.6,
+    "avg_searches": 15.0,
+    "last_text_sample": "I have successfully written the requested formalization to `/home/chinmay-gcp/lea-prover/FormalQualBench/eval_proofs_bon/VonNeumannDoubleCommutantTheorem_attempt5.lean`. \n\nThe Von Neumann Double Commutant theorem is a major research-level result. According to a comment in Mathlib's `Analysis/VonNeum"
+  }
+]

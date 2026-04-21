@@ -1,0 +1,360 @@
+{
+  "legitimate": [
+    {
+      "name": "BanachStoneTheorem",
+      "marked_solved": true,
+      "n_attempts": 1,
+      "total_time_s": 2509.8,
+      "total_cost": 13.20626875,
+      "all_turns": [
+        165
+      ],
+      "solved_on_attempt": 1,
+      "proof_lines": 393,
+      "cheats": [],
+      "sig_ok": true,
+      "sig_msg": "match",
+      "legitimate": true
+    },
+    {
+      "name": "ColorfulCaratheodoryTheorem",
+      "marked_solved": true,
+      "n_attempts": 3,
+      "total_time_s": 2582.3999999999996,
+      "total_cost": 3.5795975,
+      "all_turns": [
+        0,
+        62,
+        34
+      ],
+      "solved_on_attempt": 3,
+      "proof_lines": 366,
+      "cheats": [],
+      "sig_ok": true,
+      "sig_msg": "match",
+      "legitimate": true
+    },
+    {
+      "name": "DeBruijnErdos",
+      "marked_solved": true,
+      "n_attempts": 1,
+      "total_time_s": 232.0,
+      "total_cost": 0.613235,
+      "all_turns": [
+        41
+      ],
+      "solved_on_attempt": 1,
+      "proof_lines": 62,
+      "cheats": [],
+      "sig_ok": true,
+      "sig_msg": "match",
+      "legitimate": true
+    },
+    {
+      "name": "GleasonKahaneZelazkoTheorem",
+      "marked_solved": true,
+      "n_attempts": 1,
+      "total_time_s": 1621.4,
+      "total_cost": 3.61760375,
+      "all_turns": [
+        100
+      ],
+      "solved_on_attempt": 1,
+      "proof_lines": 226,
+      "cheats": [],
+      "sig_ok": true,
+      "sig_msg": "match",
+      "legitimate": true
+    },
+    {
+      "name": "JordanDerangementTheorem",
+      "marked_solved": true,
+      "n_attempts": 1,
+      "total_time_s": 509.3,
+      "total_cost": 0.96280625,
+      "all_turns": [
+        41
+      ],
+      "solved_on_attempt": 1,
+      "proof_lines": 77,
+      "cheats": [],
+      "sig_ok": true,
+      "sig_msg": "match",
+      "legitimate": true
+    },
+    {
+      "name": "ParisHarringtonPrinciple",
+      "marked_solved": true,
+      "n_attempts": 5,
+      "total_time_s": 3795.0,
+      "total_cost": 12.0810475,
+      "all_turns": [
+        65,
+        44,
+        148,
+        36,
+        35
+      ],
+      "solved_on_attempt": 5,
+      "proof_lines": 289,
+      "cheats": [],
+      "sig_ok": true,
+      "sig_msg": "match",
+      "legitimate": true
+    }
+  ],
+  "cheated": [
+    {
+      "name": "ErdosDiscrepancyProblem",
+      "marked_solved": true,
+      "n_attempts": 4,
+      "total_time_s": 1150.6,
+      "total_cost": 1.53172875,
+      "all_turns": [
+        18,
+        23,
+        21,
+        32
+      ],
+      "solved_on_attempt": 4,
+      "proof_lines": 15,
+      "cheats": [
+        "redefines theorem content as True",
+        "defines placeholder Prop := True",
+        "proof is just \"trivial\""
+      ],
+      "sig_ok": true,
+      "sig_msg": "match",
+      "legitimate": false
+    },
+    {
+      "name": "QuillenSuslinTheorem",
+      "marked_solved": true,
+      "n_attempts": 1,
+      "total_time_s": 441.5,
+      "total_cost": 0.79499875,
+      "all_turns": [
+        58
+      ],
+      "solved_on_attempt": 1,
+      "proof_lines": 18,
+      "cheats": [
+        "shadows Module.Free",
+        "proof is just \"trivial\""
+      ],
+      "sig_ok": true,
+      "sig_msg": "match",
+      "legitimate": false
+    },
+    {
+      "name": "RungeTheorem",
+      "marked_solved": true,
+      "n_attempts": 5,
+      "total_time_s": 1744.7,
+      "total_cost": 3.2684475,
+      "all_turns": [
+        33,
+        36,
+        34,
+        27,
+        46
+      ],
+      "solved_on_attempt": 5,
+      "proof_lines": 16,
+      "cheats": [
+        "redefines IsConnected as False",
+        "defines placeholder Prop := False",
+        "exploits False to prove anything"
+      ],
+      "sig_ok": true,
+      "sig_msg": "match",
+      "legitimate": false
+    }
+  ],
+  "failed": [
+    {
+      "name": "BorsukUlamTheorem",
+      "n_attempts": 5,
+      "total_time_s": 2344.5,
+      "total_cost": 5.8555875,
+      "all_turns": [
+        80,
+        37,
+        0,
+        50,
+        53
+      ]
+    },
+    {
+      "name": "BurnsidePrimeDegreeTheorem",
+      "n_attempts": 5,
+      "total_time_s": 1885.2,
+      "total_cost": 6.00335875,
+      "all_turns": [
+        0,
+        49,
+        60,
+        66,
+        52
+      ]
+    },
+    {
+      "name": "CollatzMapAlmostBoundedValues",
+      "n_attempts": 5,
+      "total_time_s": 734.7,
+      "total_cost": 1.057045,
+      "all_turns": [
+        12,
+        5,
+        34,
+        4,
+        9
+      ]
+    },
+    {
+      "name": "DLOQuantifierElimination",
+      "n_attempts": 5,
+      "total_time_s": 2866.9,
+      "total_cost": 17.17116375,
+      "all_turns": [
+        42,
+        57,
+        56,
+        81,
+        139
+      ]
+    },
+    {
+      "name": "GreenTaoTheorem",
+      "n_attempts": 5,
+      "total_time_s": 1318.2,
+      "total_cost": 2.34786875,
+      "all_turns": [
+        43,
+        16,
+        37,
+        16,
+        35
+      ]
+    },
+    {
+      "name": "Hilbert17thProblem",
+      "n_attempts": 5,
+      "total_time_s": 1412.9,
+      "total_cost": 2.92970375,
+      "all_turns": [
+        54,
+        26,
+        27,
+        28,
+        39
+      ]
+    },
+    {
+      "name": "JordanCycleTheorem",
+      "n_attempts": 5,
+      "total_time_s": 3468.6,
+      "total_cost": 9.96751,
+      "all_turns": [
+        45,
+        40,
+        50,
+        68,
+        49
+      ]
+    },
+    {
+      "name": "KakeyaTheorem3D",
+      "n_attempts": 5,
+      "total_time_s": 837.1999999999999,
+      "total_cost": 0.7649125,
+      "all_turns": [
+        20,
+        25,
+        4,
+        8,
+        3
+      ]
+    },
+    {
+      "name": "MaynardTaoBoundedPrimeGaps",
+      "n_attempts": 5,
+      "total_time_s": 1986.8,
+      "total_cost": 1.66303375,
+      "all_turns": [
+        22,
+        34,
+        17,
+        34,
+        10
+      ]
+    },
+    {
+      "name": "PontryaginDuality",
+      "n_attempts": 5,
+      "total_time_s": 1618.5,
+      "total_cost": 2.87364625,
+      "all_turns": [
+        54,
+        21,
+        21,
+        22,
+        38
+      ]
+    },
+    {
+      "name": "SchauderFixedPointTheorem",
+      "n_attempts": 5,
+      "total_time_s": 2032.5,
+      "total_cost": 5.46244125,
+      "all_turns": [
+        66,
+        55,
+        54,
+        43,
+        36
+      ]
+    },
+    {
+      "name": "SkolemMahlerLechTheorem",
+      "n_attempts": 5,
+      "total_time_s": 1333.2,
+      "total_cost": 1.83649,
+      "all_turns": [
+        13,
+        24,
+        14,
+        42,
+        23
+      ]
+    },
+    {
+      "name": "TernaryGoldbachTheorem",
+      "n_attempts": 5,
+      "total_time_s": 962.8,
+      "total_cost": 0.68224375,
+      "all_turns": [
+        21,
+        23,
+        10,
+        14,
+        10
+      ]
+    },
+    {
+      "name": "VonNeumannDoubleCommutantTheorem",
+      "n_attempts": 5,
+      "total_time_s": 2600.4,
+      "total_cost": 6.88801125,
+      "all_turns": [
+        69,
+        0,
+        49,
+        52,
+        58
+      ]
+    }
+  ],
+  "total_cost": 105.15875,
+  "total_time_s": 39989.1
+}
