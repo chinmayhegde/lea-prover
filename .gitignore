@@ -19,6 +19,7 @@ workspace/*.lean
 # Eval results
 eval/results/
 eval/*.log
+eval/*.pid
 
 # Agent scratch files in repo root
 /*.lean

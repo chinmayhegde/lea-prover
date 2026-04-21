@@ -152,11 +152,15 @@ def main():
     problems = discover_problems(args.problems)
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    run_name = f"fqb_best{args.n}_{timestamp}"
-    results_path = Path(args.resume) if args.resume else RESULTS_DIR / f"{run_name}.json"
+    if args.resume:
+        results_path = Path(args.resume)
+        run_name = results_path.stem
+    else:
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        run_name = f"fqb_best{args.n}_{timestamp}"
+        results_path = RESULTS_DIR / f"{run_name}.json"
     transcript_dir = RESULTS_DIR / f"{run_name}_transcripts"
-    proof_dir = FQB_DIR / "eval_proofs_bon"
+    proof_dir = FQB_DIR / f"eval_proofs_bon_{run_name}"
 
     existing = {}
     if args.resume and results_path.exists():
@@ -217,12 +221,14 @@ def main():
         print(f"  Best-of-{args.n}: {total_solved}/{total_done} solved so far\n", flush=True)
 
         # Save after each problem
+        from lea.agent import MODEL_PRICING, DEFAULT_PRICING
+        in_price, out_price = MODEL_PRICING.get(args.model, DEFAULT_PRICING)
         total_cost = 0
         total_time = 0
         for r in results.values():
             for a in r.get("attempts", []):
                 usage = a.get("usage", {})
-                total_cost += (usage.get("input_tokens", 0) * 1.25 + usage.get("output_tokens", 0) * 10.0) / 1_000_000
+                total_cost += (usage.get("input_tokens", 0) * in_price + usage.get("output_tokens", 0) * out_price) / 1_000_000
                 total_time += a.get("time_s", 0)
 
         output = {

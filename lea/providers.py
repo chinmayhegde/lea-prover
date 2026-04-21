@@ -229,6 +229,11 @@ class _ToolMeta:
 # ---------------------------------------------------------------------------
 
 def _stream_openai(model, system, messages, tools):
+    # GPT-5.4 "-pro" variants are reasoning-only and require the Responses API.
+    if "-pro" in model:
+        yield from _stream_openai_responses(model, system, messages, tools)
+        return
+
     import json
     from openai import OpenAI
 
@@ -323,5 +328,104 @@ def _stream_openai(model, system, messages, tools):
                 yield ToolCall(tc["name"], args)
                 yield _ToolMeta(tc["id"])
             tool_calls_acc = {}
+
+    yield Done(usage)
+
+
+def _stream_openai_responses(model, system, messages, tools):
+    """OpenAI Responses API path — required for gpt-*-pro reasoning models."""
+    import json
+    from openai import OpenAI
+
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+
+    # Responses API tool schema: flat, no "function" wrapper.
+    openai_tools = [
+        {
+            "type": "function",
+            "name": t["name"],
+            "description": t["description"],
+            "parameters": t["input_schema"],
+        }
+        for t in tools
+    ]
+
+    # Build input list from the unified message format.
+    input_items = []
+    for msg in messages:
+        if msg["role"] == "user":
+            if isinstance(msg["content"], str):
+                input_items.append({"role": "user", "content": msg["content"]})
+            elif isinstance(msg["content"], list):
+                for item in msg["content"]:
+                    if item.get("type") == "tool_result":
+                        content = item["content"]
+                        if not isinstance(content, str):
+                            content = json.dumps(content)
+                        input_items.append({
+                            "type": "function_call_output",
+                            "call_id": item["tool_call_id"],
+                            "output": content,
+                        })
+        elif msg["role"] == "assistant":
+            if isinstance(msg["content"], list):
+                for item in msg["content"]:
+                    if item.get("type") == "text" and item.get("text"):
+                        input_items.append({"role": "assistant", "content": item["text"]})
+                    elif item.get("type") == "tool_call":
+                        input_items.append({
+                            "type": "function_call",
+                            "call_id": item["id"],
+                            "name": item["name"],
+                            "arguments": json.dumps(item["args"]),
+                        })
+
+    usage = Usage()
+    pending_calls = {}  # item_id -> {call_id, name, args_json}
+
+    stream = client.responses.create(
+        model=model,
+        instructions=system,
+        input=input_items,
+        tools=openai_tools,
+        stream=True,
+    )
+
+    for event in stream:
+        etype = getattr(event, "type", "")
+
+        if etype == "response.output_text.delta":
+            yield TextDelta(event.delta)
+
+        elif etype == "response.output_item.added":
+            item = getattr(event, "item", None)
+            if item is not None and getattr(item, "type", "") == "function_call":
+                pending_calls[item.id] = {
+                    "call_id": item.call_id,
+                    "name": item.name,
+                    "args_json": "",
+                }
+
+        elif etype == "response.function_call_arguments.delta":
+            item_id = getattr(event, "item_id", None)
+            if item_id in pending_calls:
+                pending_calls[item_id]["args_json"] += event.delta
+
+        elif etype == "response.output_item.done":
+            item = getattr(event, "item", None)
+            if item is not None and getattr(item, "type", "") == "function_call":
+                info = pending_calls.pop(item.id, None)
+                if info is not None:
+                    args_json = info["args_json"] or getattr(item, "arguments", "") or ""
+                    args = json.loads(args_json) if args_json else {}
+                    yield ToolCall(info["name"], args)
+                    yield _ToolMeta(info["call_id"])
+
+        elif etype == "response.completed":
+            resp = getattr(event, "response", None)
+            u = getattr(resp, "usage", None) if resp is not None else None
+            if u is not None:
+                usage.input_tokens = getattr(u, "input_tokens", 0) or 0
+                usage.output_tokens = getattr(u, "output_tokens", 0) or 0
 
     yield Done(usage)
