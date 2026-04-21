@@ -10,11 +10,12 @@ Usage:
 import argparse
 import json
 import re
-import subprocess
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+
+from eval.utils.verify import verify_proof as _safe_verify
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -49,38 +50,24 @@ def extract_theorem(path: Path) -> tuple[str, str]:
     return name, statement
 
 
-def verify_proof(proof_path: Path) -> tuple[bool, str]:
-    """Compile a proof file against the miniF2F Lake project. Returns (success, output)."""
+def verify_proof(proof_path: Path, problem_path: Path) -> tuple[bool, str]:
+    """SafeVerify against the original problem file, plus miniF2F's policy
+    ban on tactic-query leakage (`exact?` / `apply?` / `simp?` / `decide?` /
+    `native_decide`). The keyword scan is separate from SafeVerify because
+    those tokens are elaborated away before the .olean — SafeVerify can't
+    see them."""
     if not proof_path.exists():
         return False, "Proof file not found"
-
-    # Check for disallowed constructs in the source
     content = proof_path.read_text()
-    if "sorry" in content:
-        return False, "Proof contains sorry"
-    for banned in ["axiom ", "native_decide", "exact?", "apply?", "simp?", "decide?"]:
+    for banned in ["native_decide", "exact?", "apply?", "simp?", "decide?"]:
         if banned in content:
-            return False, f"Proof contains disallowed '{banned.strip()}'"
-
-    try:
-        result = subprocess.run(
-            ["lake", "env", "lean", str(proof_path)],
-            capture_output=True, text=True, timeout=300,
-            cwd=str(MINIF2F_DIR),
-        )
-        output = (result.stdout + "\n" + result.stderr).strip()
-        if result.returncode != 0:
-            return False, output if output else f"Exit code {result.returncode}"
-        if "declaration uses `sorry`" in output or "uses 'sorry'" in output:
-            return False, "Proof uses sorry (via tactic query)"
-        if "error" in output.lower():
-            return False, output
-        return True, output if output else "OK"
-    except subprocess.TimeoutExpired:
-        return False, "Compilation timed out (300s)"
+            return False, f"Proof contains disallowed '{banned}'"
+    return _safe_verify(
+        target_src=problem_path, submission_src=proof_path, lake_project=MINIF2F_DIR
+    )
 
 
-def run_agent(theorem_name: str, statement: str, model: str, max_turns: int,
+def run_agent(theorem_name: str, problem_path: Path, statement: str, model: str, max_turns: int,
               proof_dir: Path, transcript_dir: Path) -> dict:
     """Run Lea on a single problem. Returns result dict."""
     from lea.agent import run
@@ -110,7 +97,7 @@ def run_agent(theorem_name: str, statement: str, model: str, max_turns: int,
     finished_at = datetime.now(timezone.utc).isoformat()
 
     # Verify
-    success, verify_output = verify_proof(proof_path)
+    success, verify_output = verify_proof(proof_path, problem_path)
 
     # Save per-problem transcript
     transcript_data = {
@@ -199,7 +186,7 @@ def main():
 
         print(f"[{total + 1}/{len(problems)}] {name}", flush=True)
 
-        result = run_agent(theorem_name, statement, args.model, args.max_turns,
+        result = run_agent(theorem_name, problem_path, statement, args.model, args.max_turns,
                            proof_dir, transcript_dir)
         results[name] = result
         total += 1

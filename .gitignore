@@ -9,12 +9,20 @@ uv.lock
 
 # Lean
 .lake/
+*.olean
+*.ilean
+*.trace
 miniF2F-lean4/
 FormalQualBench/
 workspace/proofs/*
 !workspace/proofs/.gitkeep
 workspace/*.lean
 !workspace/lakefile.lean
+
+# Vendored SafeVerify build/scratch artifacts (source is committed, build output isn't)
+third_party/SafeVerify/.sv_scratch/
+third_party/*/.lake/
+third_party/*/build/
 
 # Eval results
 eval/results/

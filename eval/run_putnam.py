@@ -10,11 +10,13 @@ import argparse
 import json
 import os
 import re
-import subprocess
+import shutil
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+
+from eval.utils.verify import verify_proof as _safe_verify
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -24,9 +26,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PUTNAM_DIR = REPO_ROOT / "putnam-lean4"
 PROBLEMS_DIR = PUTNAM_DIR / "problems"
 RESULTS_DIR = REPO_ROOT / "eval" / "results"
-
-# Axioms Lean considers foundational; anything else is a user-introduced cheat.
-ALLOWED_AXIOMS = {"propext", "Classical.choice", "Quot.sound"}
 
 
 def discover_problems() -> list[Path]:
@@ -51,65 +50,14 @@ def extract_theorem(path: Path) -> tuple[str, str]:
     return name, statement
 
 
-def _check_axioms(proof_path: Path, theorem_name: str) -> tuple[bool, str]:
-    """Run `#print axioms` on the proved theorem. Fail if it depends on any axiom
-    outside ALLOWED_AXIOMS (catches agent-introduced `axiom`, `opaque`, `sorryAx`, etc.,
-    even across files since `#print axioms` is transitive through imports)."""
-    probe_path = proof_path.with_suffix(".axcheck.lean")
-    probe_path.write_text(proof_path.read_text() + f"\n\n#print axioms {theorem_name}\n")
-    try:
-        result = subprocess.run(
-            ["lake", "env", "lean", str(probe_path)],
-            capture_output=True, text=True, timeout=300,
-            cwd=str(PUTNAM_DIR),
-        )
-        output = (result.stdout + "\n" + result.stderr).strip()
-        if "does not depend on any axioms" in output:
-            return True, "no axioms"
-        m = re.search(r"depends on axioms:\s*\[(.*?)\]", output, re.DOTALL)
-        if not m:
-            return False, f"could not parse #print axioms output: {output[:200]}"
-        axioms = [a.strip() for a in m.group(1).split(",") if a.strip()]
-        forbidden = [a for a in axioms if a not in ALLOWED_AXIOMS]
-        if forbidden:
-            return False, f"forbidden axioms: {forbidden}"
-        return True, f"axioms OK: {axioms}"
-    except subprocess.TimeoutExpired:
-        return False, "Axiom check timed out"
-    finally:
-        probe_path.unlink(missing_ok=True)
+def verify_proof(proof_path: Path, problem_path: Path) -> tuple[bool, str]:
+    """Verify via SafeVerify against the original problem file as target."""
+    return _safe_verify(
+        target_src=problem_path, submission_src=proof_path, lake_project=PUTNAM_DIR
+    )
 
 
-def verify_proof(proof_path: Path, theorem_name: str) -> tuple[bool, str]:
-    """Compile a proof file against the putnam-lean4 Lake project. Returns (success, output)."""
-    if not proof_path.exists():
-        return False, "Proof file not found"
-
-    # Check for sorry in the proof
-    content = proof_path.read_text()
-    if "sorry" in content:
-        return False, "Proof contains sorry"
-
-    try:
-        result = subprocess.run(
-            ["lake", "env", "lean", str(proof_path)],
-            capture_output=True, text=True, timeout=300,
-            cwd=str(PUTNAM_DIR),
-        )
-        output = (result.stdout + "\n" + result.stderr).strip()
-        if result.returncode != 0 or "error" in output.lower():
-            return False, output if output else f"Exit code {result.returncode}"
-    except subprocess.TimeoutExpired:
-        return False, "Compilation timed out (300s)"
-
-    # Compile succeeded — verify the proof doesn't sneak in extra axioms.
-    ok, ax_msg = _check_axioms(proof_path, theorem_name)
-    if not ok:
-        return False, ax_msg
-    return True, f"OK ({ax_msg})"
-
-
-def run_agent(theorem_name: str, statement: str, model: str, max_turns: int,
+def run_agent(theorem_name: str, problem_path: Path, statement: str, model: str, max_turns: int,
               proof_dir: Path, transcript_dir: Path) -> dict:
     """Run Lea on a single problem. Returns result dict."""
     from lea.agent import run
@@ -139,7 +87,7 @@ def run_agent(theorem_name: str, statement: str, model: str, max_turns: int,
     finished_at = datetime.now(timezone.utc).isoformat()
 
     # Verify
-    success, verify_output = verify_proof(proof_path, theorem_name)
+    success, verify_output = verify_proof(proof_path, problem_path)
 
     # Save per-problem transcript
     transcript_data = {
@@ -208,7 +156,13 @@ def main():
     # Proof scratch directory
     proof_dir = PUTNAM_DIR / "eval_proofs"
 
-    # cd into the Lake project so load_system_prompt() picks up putnam-lean4/lea.md
+    # load_system_prompt() reads lea.md from cwd. Sync the canonical source
+    # in lea/prompts/putnam.md into PUTNAM_DIR/lea.md each run so prompt
+    # edits land without a manual cp step.
+    prompt_src = REPO_ROOT / "lea" / "prompts" / "putnam.md"
+    if not prompt_src.exists():
+        sys.exit(f"Error: Putnam prompt not found at {prompt_src}")
+    shutil.copy(prompt_src, PUTNAM_DIR / "lea.md")
     os.chdir(PUTNAM_DIR)
 
     results = existing.get("completed", {})
@@ -230,7 +184,7 @@ def main():
 
         print(f"[{total + 1}/{len(problems)}] {name}", flush=True)
 
-        result = run_agent(theorem_name, statement, args.model, args.max_turns,
+        result = run_agent(theorem_name, problem_path, statement, args.model, args.max_turns,
                            proof_dir, transcript_dir)
         results[name] = result
         total += 1
