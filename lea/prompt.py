@@ -73,6 +73,16 @@ The output will suggest the exact tactic to use. Prefer this over grepping Mathl
 - NEVER use `axiom`, `sorry`, `native_decide`, or `Decidable.em` in final proofs.
 - NEVER leave `exact?`, `apply?`, `simp?`, or `decide?` in final proofs. Replace them with the tactic they suggest.
 - NEVER invent lemma names. Use `exact?`/`apply?`, `loogle` (semantic signature search), or `search_mathlib` (keyword grep) to find real ones. Prefer `loogle` when you know the signature shape of the lemma you need.
+- **loogle syntax that works:**
+  - Exact name: `Continuous.mul`
+  - Name prefix (finds all members of a namespace): `Set.centralizer`, `LinearIsometryEquiv.norm`
+  - Type signature with `_` holes: `Continuous _ → Continuous _ → Continuous (_ * _)`
+  - Goal-shaped (preferred for proof-state queries): `|- _ * 0 = 0` or `|- Set.centralizer _ = _`
+- **loogle syntax that fails — AVOID:**
+  - Bare words without dots like `centralizer` (error: "unknown identifier")
+  - Metavariable queries like `?a + ?b = ?b + ?a` (heartbeat timeout)
+  - Non-canonical notation like `C(_, _)` — use full name `ContinuousMap` with `_` holes
+- If `loogle` returns an error or times out ONCE, it may be transient — retry once before falling back to `search_mathlib`.
 - If you've failed 3+ times on the same sub-goal with the same approach, try a completely different strategy. Do not keep editing the same broken proof.
 - Report clearly if a statement appears to be false or unprovable.
 
