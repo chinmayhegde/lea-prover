@@ -54,7 +54,7 @@ These have been tried and rejected. If the user asks, remind them.
    - "Prefer `search_mathlib` over bash grep" rule (Critical Rules)
    - "`lean_check` is a tool not a shell command" clarification
 
-6. **No network-isolation enforcement.** The bash tool can run `curl`/`wget`/`urllib.request`. Gemini has used this (20+ web calls on JordanCycle baseline). For clean benchmarking this is a gap; accepted as Pi-compatible default. User explicitly said "no need for isolation, it's okay" during v2 development.
+6. **No network-isolation enforcement.** The bash tool can run `curl`/`wget`/`urllib.request`. Gemini has used this (20+ web calls on JordanCycle baseline). For clean benchmarking this is a gap; accepted as Pi-compatible default.
 
 ## Known model failure modes
 
@@ -83,43 +83,13 @@ import FormalQualBench.ColorfulCaratheodoryTheorem.Main
 
 Standard version: `import ... ; example : <statement> := MainTheorem args`.
 
-Once GPT found this, it applied it systematically. By the 4th problem it was trying the exploit on attempt 1, before any real attempt. Four defense layers (banned-token grep, header fence, anti-shadowing, `lake env lean` compile) all bypassed.
+Once GPT found this, it applied it systematically. By the 4th problem it was trying the exploit on attempt 1, before any real attempt.
+
+**Interim patch (2026-04-24):** `verify_proof` in both FQB runners now rejects any `^import FormalQualBench\.\w+` match. This blocks the observed exploit but is not semantic verification; SafeVerify/Comparator is still the real fix.
 
 ### The common thread
 
 We verify syntax + compilation, not **semantic correspondence**. The fix is to integrate [SafeVerify](https://github.com/GasStationManager/SafeVerify) or FormalQualBench's [Comparator](https://github.com/leanprover/comparator), which check statement equivalence recursively through imports. This is the highest-leverage open TODO.
-
-A one-line patch closes the GPT exploit specifically: in `eval/run_fqb_best_of_n.py` `verify_proof`, after reading content, reject any `^import FormalQualBench\.\w+` match.
-
-## Archive and contamination hygiene
-
-**Prior-run artifacts live OUTSIDE the repo tree at `/home/chinmay-gcp/lea-archive/`.** Chmod 700 (or 000 during active runs).
-
-Do NOT put `_archive/` back inside `lea-prover/`. Opus 4.7 successfully discovered `/home/chinmay-gcp/lea-archive/` by path guessing during one run — the agent routinely pokes obvious paths. The only robust isolation is:
-1. Outside the repo tree, AND
-2. `chmod 000` during runs (restore `700` after).
-
-Workflow around runs:
-```bash
-# Before a run (if archive exists):
-chmod 000 /home/chinmay-gcp/lea-archive
-
-# After a run:
-chmod 700 /home/chinmay-gcp/lea-archive
-
-# Archive a completed run:
-DEST=/home/chinmay-gcp/lea-archive/<run_name>_<date>
-mkdir -p "$DEST"
-mv eval/results/fqb_best5_<timestamp>{,.json,_transcripts} "$DEST/"
-mv FormalQualBench/eval_proofs_bon_fqb_best5_<timestamp> "$DEST/"
-mv eval/<run>.log eval/<run>.pid "$DEST/"
-```
-
-**Clean-tree invariant before any new run:**
-- `eval/results/` empty
-- `FormalQualBench/*.lean` contains only `FormalQualBench.lean` (no scratch at root)
-- `workspace/proofs/` contains only `.gitkeep`
-- No `_archive/` directory inside `lea-prover/`
 
 ## Known bugs
 
@@ -132,8 +102,6 @@ mv eval/<run>.log eval/<run>.pid "$DEST/"
 ### Launch a best-of-5 run
 
 ```bash
-cd /home/chinmay-gcp/lea-prover
-# Optionally: chmod 000 /home/chinmay-gcp/lea-archive
 nohup env PYTHONUNBUFFERED=1 uv run python -m eval.run_fqb_best_of_n \
     --n 5 --model <model-id> \
     [--feedback] \
@@ -155,29 +123,12 @@ grep -E "^\[.*\] attempt|PASS|FAIL|Best-of" eval/fqb_bon5_<tag>.log | tail -20
 
 For each "solved" problem, read the submitted `.lean` file and check:
 1. `grep -nE "^(noncomputable\s+)?(def|abbrev)" <file>` — any redefinition of Mathlib-namespace names?
-2. `grep -nE "^import FormalQualBench\.\w+"` — importing the benchmark's own canonical files? (GPT-style exploit)
+2. `grep -nE "^import FormalQualBench\.\w+"` — importing the benchmark's own canonical files? (GPT-style exploit; now also blocked by the verifier.)
 3. `grep -nE ":= (True|False|\(\))\b"` — any trivializations?
 4. Is the file ≥ 30 lines? < 30 lines on a FQB problem is suspicious.
 5. Does the agent's final text mention "shadowing," "trivialize," or "import"? (Gemini often admits cheats explicitly.)
 
 Pattern auditing code already in `fqb-reports/*.html` reports — reuse.
-
-### Kill + cleanup if a run goes bad
-
-```bash
-kill $(cat eval/fqb_bon5_<tag>.pid)
-pkill -f "run_fqb_best_of_n"
-DEST=/home/chinmay-gcp/lea-archive/<tag>_killed_<date>
-mkdir -p "$DEST"
-mv eval/fqb_bon5_<tag>.log eval/fqb_bon5_<tag>.pid "$DEST/"
-mv eval/results/fqb_best5_<timestamp>* "$DEST/"
-mv FormalQualBench/eval_proofs_bon_fqb_best5_<timestamp> "$DEST/"
-# scratch cleanup:
-mv workspace/proofs/*.lean "$DEST/" 2>/dev/null
-cd FormalQualBench && for f in *.lean; do
-  git ls-files --error-unmatch "$f" >/dev/null 2>&1 || mv "$f" "$DEST/"
-done
-```
 
 ## Where things live
 
@@ -191,8 +142,6 @@ done
 - [`fqb-reports/`](./fqb-reports/) — all writeups (md and html)
 - [`DESIGN.md`](./DESIGN.md) — architecture doc; planned sketch-fill-reflect pipeline (mostly unimplemented, intentionally)
 - [`USAGE.md`](./USAGE.md) — CLI reference
-- `/home/chinmay-gcp/lea-archive/` — all prior-run artifacts, tarballs, scratch. Three tarballs: `gemini_feedback_bon5_2026-04-21.tar.gz`, `opus_feedback_bon5_2026-04-23.tar.gz`, `gpt_feedback_bon5_partial_2026-04-24.tar.gz`.
-- `/home/chinmay-gcp/olea-notes/` — plan for a hosted minimal Lea service. Separate repo/project, not inside lea-prover.
 
 ## Open questions for v2
 
@@ -208,11 +157,5 @@ Ordered by highest-leverage first:
 
 - Don't try to reach 8/23 by adding orchestration. The gap is verification and model capability, not glue code.
 - Don't add an MCP server dependency.
-- Don't build user accounts / auth / multi-tenant — that's for Olea (separate project).
+- Don't build user accounts / auth / multi-tenant — that's for a separate project.
 - Don't rewrite the agent loop. If it looks too simple, that's the feature.
-
-## Meta notes
-
-- `.git` commit history goes back to early April. `git log --oneline` is the canonical decision log.
-- The user is Chinmay Hegde (NYU, chinmay.h@nyu.edu). Not a mathematician — blueprint mode should probably auto-generate outlines via LLM rather than require human mathematical expertise.
-- Previous Claude sessions built up auto-memory at `/home/chinmay-gcp/.claude/projects/-home-chinmay-gcp/memory/project_lea.md`. That has additional context if needed.

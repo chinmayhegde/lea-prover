@@ -59,6 +59,8 @@ def verify_proof(proof_path: Path) -> tuple[bool, str]:
     for banned in ["axiom ", "native_decide", "exact?", "apply?", "simp?", "decide?"]:
         if banned in content:
             return False, f"Proof contains disallowed '{banned.strip()}'"
+    if re.search(r"^\s*import\s+FormalQualBench\.\w+", content, re.MULTILINE):
+        return False, "Proof imports FormalQualBench.* (benchmark canonical module; contains target as sorry)"
 
     try:
         result = subprocess.run(

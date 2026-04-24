@@ -34,3 +34,6 @@ eval/*.pid
 .vscode/
 .idea/
 _archive/
+
+# Local Claude notes (ops, paths, personal context)
+.claude.local.md
