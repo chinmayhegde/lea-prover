@@ -25,22 +25,6 @@ FQB_DIR = REPO_ROOT / "FormalQualBench"
 PROBLEMS_DIR = FQB_DIR / "FormalQualBench"
 RESULTS_DIR = REPO_ROOT / "eval" / "results"
 
-NEAR_MISS_MAX_ERRORS = 3
-
-
-def _is_near_miss(verify_output: str) -> bool:
-    """Feed a prior failed attempt's output forward only if it's close to
-    compiling. `declaration uses sorry` (tactic-query leak) or ≤3 compile
-    errors count as near-misses. Everything else (banned-token rejects,
-    many errors, timeouts) indicates a strategy reset is better than retry
-    with feedback."""
-    if not verify_output:
-        return False
-    if "declaration uses `sorry`" in verify_output or "uses 'sorry'" in verify_output:
-        return True
-    error_count = sum(1 for line in verify_output.splitlines() if "error:" in line.lower())
-    return 1 <= error_count <= NEAR_MISS_MAX_ERRORS
-
 
 def discover_problems(names: list[str] | None = None) -> list[Path]:
     all_dirs = sorted([
@@ -99,7 +83,6 @@ def verify_proof(proof_path: Path) -> tuple[bool, str]:
 def run_single_attempt(problem_name: str, statement: str, model: str,
                        max_turns: int | None, proof_dir: Path,
                        transcript_dir: Path, attempt: int,
-                       prev_failure: str | None = None,
                        blueprint: str | None = None) -> dict:
     from lea.agent import run
 
@@ -125,15 +108,6 @@ def run_single_attempt(problem_name: str, statement: str, model: str,
             f"but VERIFY any Mathlib lemma names it mentions with `search_mathlib` before using them — "
             f"outlines may reference lemmas that don't exist or are named differently in this Mathlib version.\n\n"
             f"{blueprint}"
-        )
-
-    if prev_failure:
-        task += (
-            f"\n\n## Your previous attempt was close but failed\n"
-            f"Final `lean_check` / verifier output from the previous attempt:\n"
-            f"```\n{prev_failure[:500]}\n```\n"
-            f"This is attempt {attempt}. Fix the specific issues above. "
-            f"Do not repeat the same mistake."
         )
 
     started_at = datetime.now(timezone.utc).isoformat()
@@ -185,10 +159,6 @@ def main():
     parser.add_argument("--max-turns", type=int, default=None)
     parser.add_argument("--problems", nargs="+", default=None)
     parser.add_argument("--resume", type=str, default=None)
-    parser.add_argument("--feedback", action="store_true",
-                        help="Feed the previous failed attempt's output forward, but only on near-misses "
-                             "(compile-error count ≤ 3, or tactic-query sorry leak). Non-near-miss failures "
-                             "get independent trials.")
     parser.add_argument("--blueprint-dir", type=str, default=None,
                         help="Directory containing per-problem proof outlines (<ProblemName>.md). "
                              "When present, the outline is injected into the task.")
@@ -241,37 +211,19 @@ def main():
         # Figure out which attempts are already done
         existing_attempts = results.get(name, {}).get("attempts", [])
         done_attempt_nums = {a["attempt"] for a in existing_attempts}
-        # Seed prev_failure from the most recent completed failed attempt (for resume).
-        # Under selective feedback, only feed forward if the prior failure was a near-miss.
-        prev_failure = None
-        if args.feedback and existing_attempts:
-            last_fail = next((a for a in reversed(existing_attempts) if not a.get("success")), None)
-            if last_fail:
-                candidate = last_fail.get("verify_output") or None
-                if candidate and _is_near_miss(candidate):
-                    prev_failure = candidate
 
         for attempt in range(1, args.n + 1):
             if attempt in done_attempt_nums:
                 continue
 
-            tags = []
-            if args.feedback and prev_failure:
-                tags.append("feedback")
-            if blueprint:
-                tags.append("blueprint")
-            tag_str = f" [{'+'.join(tags)}]" if tags else ""
+            tag_str = " [blueprint]" if blueprint else ""
             print(f"[{name}] attempt {attempt}/{args.n}{tag_str}", flush=True)
 
             result = run_single_attempt(
                 problem_name, statement, args.model, args.max_turns,
                 proof_dir, transcript_dir, attempt,
-                prev_failure=prev_failure if args.feedback else None,
                 blueprint=blueprint,
             )
-            if args.feedback:
-                out = result.get("verify_output") if not result["success"] else None
-                prev_failure = out if (out and _is_near_miss(out)) else None
 
             if name not in results:
                 results[name] = {"attempts": [], "all_done": False}
