@@ -55,7 +55,7 @@ TOOLS_SCHEMA = [
     },
     {
         "name": "bash",
-        "description": "Run a shell command and return stdout + stderr. Use for lake build, grep, exact?, or any other shell operation.",
+        "description": "Run a shell command and return stdout + stderr. Use for `lake build`, git, file I/O outside the dedicated tools, etc. Do NOT use for Lean compilation (use `lean_check`) or Mathlib search (use `search_mathlib`).",
         "input_schema": {
             "type": "object",
             "properties": {

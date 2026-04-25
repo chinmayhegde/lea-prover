@@ -97,7 +97,7 @@ def run_single_attempt(problem_name: str, statement: str, model: str,
         f"The file must compile with `lake env lean` in the FormalQualBench project "
         f"with zero errors, no `sorry`, and no custom `axiom` declarations.\n\n"
         f"This is a research-level theorem. If you need intermediate lemmas, define them "
-        f"in the same file within the namespace. Use `exact?`, `apply?` via bash "
+        f"in the same file within the namespace. Use `exact?`, `apply?`, and `search_mathlib` "
         f"to find relevant Mathlib lemmas. Think carefully about the proof strategy before writing code."
     )
 

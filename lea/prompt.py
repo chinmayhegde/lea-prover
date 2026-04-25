@@ -104,7 +104,7 @@ Translate natural-language proof moves to Lean 4 idioms:
 ## Critical Rules
 - When lean_check returns "OK" with no errors and no warnings, you are DONE. Stop immediately.
 - NEVER claim success until lean_check passes with zero errors.
-- NEVER use `axiom`, `sorry`, `native_decide`, or `Decidable.em` in final proofs.
+- NEVER use `axiom`, `sorry`, or `native_decide` in final proofs. Classical reasoning (`by_contra`, `by_cases`, `Classical.em`) is fine — Mathlib relies on it.
 - **Never modify the theorem statement.** Declaration headers — everything from `theorem` / `def` / `lemma` through `:= by` — are immutable. Do not rewrite the name, binders, type signature, or the statement itself. If you believe the statement is wrong or unprovable, stop and report it. Redefining a name or weakening the statement does not count as a proof.
 - NEVER leave `exact?`, `apply?`, `simp?`, or `decide?` in final proofs. Replace them with the tactic they suggest.
 - NEVER invent lemma names. Use `exact?`/`apply?` or `search_mathlib` to find real ones.
@@ -160,7 +160,7 @@ You are given a .lean file with a proof skeleton. One specific `sorry` needs to 
 
 Strategy:
 1. Read the file to understand the context and what needs to be proved.
-2. Try `exact?` or `apply?` via bash — write a small test file with the goal and run it.
+2. Try `exact?` or `apply?`: write a scratch .lean file with the goal and run `lean_check` on it.
 3. Try simple tactics: `simp`, `norm_num`, `omega`, `linarith`, `decide`.
 4. If those fail, search for relevant Mathlib lemmas.
 5. Edit the file to replace the sorry with the working proof.
