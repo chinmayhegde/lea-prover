@@ -1,0 +1,13 @@
+1. **Acknowledge the depth of the result.** The Skolem–Mahler–Lech theorem is a genuinely deep arithmetic statement: every known proof uses p-adic analysis (Skolem's method), reducing to a p-adic analytic function vanishing on a congruence class, and then invoking Strassmann's theorem on zeros of p-adic power series. There is no short elementary proof. Mathlib currently does **not** have the key prerequisites (p-adic analytic functions on ℤ_p, Strassmann's theorem, the Lech–Mahler p-adic argument). A faithful formalization is a multi-month project. The student should either (a) build this infrastructure, or (b) state the theorem but admit a substantial `sorry`-filled skeleton. The outline below is the standard mathematical proof.
+
+2. **Reduce to a finitely generated subfield.** The sequence `u` is determined by E's coefficients and finitely many initial values. Let `K₀ ⊂ K` be the subfield they generate; it is finitely generated over ℚ. Replace `K` by `K₀`, so we may assume `K` is finitely generated over ℚ.
+
+3. **Express `u n` via the companion matrix.** Write the recurrence as `v_{n+1} = A v_n` where `v_n = (u_n, u_{n+1}, …)` and `A` is the companion matrix. Then `u_n = e^T A^n v_0` for fixed vectors. So `{n : u_n = 0}` is the zero set of `n ↦ e^T A^n v_0`.
+
+4. **Choose a good prime and embed p-adically.** By a standard lemma (finitely generated integral domains embed into ℤ_p for infinitely many primes p, with A mapping to GL over ℤ_p), pick a prime `p` such that the image of `A` lies in `GL_d(ℤ_p)` and is congruent to the identity mod p (after replacing `A` by a suitable power `A^M`). This uses that any matrix in `GL_d(𝔽_p)` has order dividing some `N`, so `A^N ≡ I (mod p)`.
+
+5. **Partition ℕ into arithmetic progressions mod M.** On each progression `n = r + Mk` (for `r = 0, …, M−1`), the function `k ↦ u_{r+Mk} = e^T A^r (A^M)^k v_0` can be written, using `A^M = I + pB`, as a p-adic analytic function `f_r(k)` in the variable `k ∈ ℤ_p`, because `(I + pB)^k = ∑ \binom{k}{j} (pB)^j` converges p-adically.
+
+6. **Apply Strassmann's theorem.** Each `f_r` is a p-adic power series with coefficients tending to 0. Strassmann's theorem says such a series is either identically zero on ℤ_p or has only finitely many zeros there. If `f_r ≡ 0`, the entire progression `{r + Mk : k ∈ ℕ}` lies in the zero set (contributes an `arithProg r M`). Otherwise, `{k : f_r(k) = 0}` is finite, contributing finitely many exceptional integers to `s`.
+
+7. **Assemble the decomposition.** Taking the union over `r ∈ {0, …, M−1}` gives the zero set as a finite union of full arithmetic progressions together with a finite exceptional set `s`, which is precisely the claimed form with `t ⊆ {(r, M) : r < M}`.

@@ -1,0 +1,15 @@
+1. **Reduce to showing `G` is `(p+1)`-transitive (or contains many cycles of small support).** Recall Jordan's classical theorem: a primitive permutation group on a finite set that contains a `p`-cycle, where `p` is prime and `p ≤ n - 3`, must contain the alternating group. The hypothesis `p + 3 ≤ Nat.card α` is exactly this condition. Mathlib already has the building block "preprimitive + a permutation fixing many points implies high transitivity / containment of alternating group" (Jordan-style theorems on `IsMultiplyPretransitive` and `alternatingGroup`). The strategy is to bootstrap from "contains a `p`-cycle" to "fixes pointwise a set of size `n - p`" and apply such a Jordan lemma.
+
+2. **Locate the right Jordan-type lemma in Mathlib.** Mathlib's `GroupTheory.GroupAction.Jordan` contains theorems of the shape: if `G` is preprimitive on `α` and contains an element whose support has small prime size (or whose fixed-point set is large), then `alternatingGroup α ≤ G`. The student should search for lemmas combining `IsPreprimitive`, `IsCycle`, and `alternatingGroup`. The target theorem is literally a `proof_wanted` there, so the needed primitive lemmas (e.g. about elements of prime order, or about the action on the support) should already exist.
+
+3. **Pass from a `p`-cycle to an element of order `p` with support of size `p`.** Since `g` is a cycle whose support has cardinality `p` (prime), `g` has order `p`, and the complement of its support has cardinality `n - p ≥ 3`. The element `g` thus fixes pointwise a set of size at least 3. This is the standard input to Jordan's theorem.
+
+4. **Apply Jordan's theorem on primitive groups containing an element of prime order with large fixed set.** The classical statement: *Let `G` act primitively on a finite set of size `n`, and suppose `G` contains a `p`-cycle with `p` prime and `p ≤ n − 3`. Then `G ⊇ A_n`.* Mathlib's Jordan file should provide either this directly or a slightly more general version phrased via `fixedPoints` or `support`. Feed in `hG`, `hgc`, `hgp`, `hp`, and the inequality `hp'`.
+
+5. **Handle bookkeeping conversions.** The student will likely need small bridges:
+   - between `g.support.card = p` and the cardinality of `MulAction.fixedBy` / complement of support,
+   - between `Nat.card α` and `Fintype.card α`,
+   - between `g ∈ G` as a permutation and `g` lifted to `G` as a subgroup element (coercions in `Equiv.Perm α`).
+   None of these are deep; they are notational.
+
+6. **If the exact Jordan lemma is missing**, the student must prove the helper: "preprimitive + contains a cycle of prime length `p` with `p ≤ n − 3` ⟹ alternating group is contained." A clean route is induction on `n − p`: use preprimitivity to conjugate `g` and generate, via commutators of overlapping `p`-cycles, a 3-cycle; then invoke the theorem that a primitive group containing a 3-cycle contains `A_n` (this latter result is in Mathlib). This commutator-of-cycles argument is the heart of Jordan's proof and is a few pages but elementary.

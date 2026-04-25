@@ -1,0 +1,14 @@
+1. **Set up the compactness framework.** The de Bruijn–Erdős theorem is a standard application of compactness. The cleanest route in Lean is via Tychonoff: equip `Fin k` with the discrete topology, give `V → Fin k` the product topology, and consider the set `C` of all functions `c : V → Fin k` that are *proper colorings* of `G` (i.e. `c u ≠ c v` whenever `G.Adj u v`). The space `V → Fin k` is compact (Tychonoff applied to a product of finite discrete spaces), and `C` is closed, since being a proper coloring is a conjunction over edges of conditions each depending on only two coordinates.
+
+2. **Reduce to a finite intersection property.** For each finite `s : Finset V`, let `C_s ⊆ V → Fin k` be the set of functions whose restriction to `s` is a proper coloring of the induced subgraph `G.induce s`. Each `C_s` is closed (a finite conjunction of clopen conditions), and `C = ⋂_s C_s`. By compactness, `C` is nonempty iff every finite subfamily `{C_{s_1}, …, C_{s_n}}` has nonempty intersection. Since the union `s = s_1 ∪ … ∪ s_n` is itself a finite set, and any coloring of `G.induce s` extends arbitrarily to all of `V`, the hypothesis gives us a function in `C_s ⊆ ⋂_i C_{s_i}`.
+
+3. **Extract a global coloring.** From the finite intersection property and compactness, conclude `C ≠ ∅`. Pick any `c ∈ C`; this is a proper coloring of `G` with values in `Fin k`, witnessing `G.Colorable k`.
+
+4. **Mathlib bridging work.** The student should expect to do nontrivial glue:
+   - Translate between `SimpleGraph.Colorable k` (existence of a `Coloring`) and the existence of a function `V → Fin k` respecting adjacency. Mathlib has both directions but the API may need light wrapping.
+   - The induced subgraph `G.induce (↑s : Set V)` lives on the subtype `↑s`; the student must convert "coloring of `G.induce s`" to "function on `s` proper on edges of `G` between elements of `s`", typically via the canonical equivalence between `s` and its coercion.
+   - Tychonoff for finite discrete factors is in Mathlib, but the student may need to assemble: `Fin k` is `CompactSpace` + `T2Space` + `DiscreteTopology`, hence so is the product.
+
+5. **Handle the degenerate case `k = 0`.** If `k = 0`, the hypothesis applied to `s = ∅` forces `V` to be empty (else take `s = {v}`; no 0-coloring exists). Then `G.Colorable 0` holds vacuously. It is cleanest to dispatch `k = 0` separately, since `Fin 0` is empty and several of the topological lemmas above degenerate.
+
+6. **Alternative route via Zorn's lemma.** If the topological route proves painful in Lean, an equivalent argument uses Zorn on the poset of partial proper colorings ordered by extension, combined with the finite hypothesis to show maximal elements are total. This avoids Tychonoff but requires careful bookkeeping of partial colorings; pick whichever ecosystem in Mathlib feels more developed to the student.

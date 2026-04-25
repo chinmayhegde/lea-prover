@@ -1,0 +1,14 @@
+1. **Acknowledge the depth.** The three-dimensional Kakeya theorem was a major open problem until Wang–Zahl (2024–2025) proved it. The proof is roughly 100+ pages and uses a sophisticated combination of multi-scale induction on scales, sticky/plany/grainy structural dichotomies, the Katz–Tao volume bound, the polynomial method, and a Frostman-style projection analysis. There is no short proof. The student should not expect to formalize this in any reasonable time frame; this outline only sketches the highest-level architecture.
+
+2. **Reduce to a discretized (δ-tube) statement.** Replace the segment-in-every-direction condition with: for every δ>0 and every δ-separated set of directions, there is a collection of δ-tubes (one per direction) of length 1, whose union has volume bounded below in terms of δ. The Hausdorff-dimension statement is equivalent (by a standard pigeonhole/covering argument) to showing this union has volume ≥ δ^{ε} for every ε>0, i.e. a "Kakeya maximal function" bound at the endpoint. Mathlib does **not** have this discretization framework; the student would have to develop tubes, δ-separated direction sets, and the equivalence with Hausdorff dimension as helper infrastructure.
+
+3. **Set up the multi-scale / two-ends induction.** Following Wang–Zahl, organize tubes by "shading" (which portion of each tube actually contributes mass) and run an induction on scales δ = 2^{-k}. At each scale one performs a structural dichotomy: either the tube configuration is "sticky" (directions cluster on a low-dimensional set of the Grassmannian), "plany" (tubes locally lie in 2-planes), or "grainy" (a finer 1-parameter structure appears).
+
+4. **Handle each structural case.** 
+   (a) The sticky case is reduced via a projection argument to the 2D Kakeya theorem (Davies / Córdoba), exploiting that sticky configurations factor through a 2-plane.
+   (b) The plany case is handled using the Guth polynomial-method estimates and the Katz–Tao X-ray bound, combined with refined incidence inequalities for tubes in 2-planes.
+   (c) The grainy case uses the Wang–Zahl "grain decomposition" plus a delicate volume estimate for unions of tubes nearly tangent to a ruled surface.
+
+5. **Assemble the dimension bound.** Combining the three cases via the induction on scales yields a Kakeya maximal inequality at the endpoint, which by a standard Frostman/energy argument upgrades to dimH K = 3 for any Kakeya set K ⊂ ℝ³. The upper bound dimH K ≤ 3 is automatic since K ⊆ ℝ³.
+
+6. **Mathlib status.** Mathlib currently lacks: (i) the Kakeya maximal function, (ii) δ-tube combinatorics, (iii) the polynomial method (Guth–Katz), (iv) the Wang–Zahl grain decomposition, and (v) even the 2D Kakeya theorem. Each is a substantial project on its own. Realistic advice: formalize the 2D case first as a multi-month project before attempting 3D.

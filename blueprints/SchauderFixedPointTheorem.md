@@ -1,0 +1,13 @@
+1. **Reduce to the finite-dimensional case (Brouwer).** The proof of Schauder is a classical reduction to the Brouwer fixed point theorem via finite-dimensional approximation. Recall that Brouwer's theorem says: every continuous self-map of a nonempty compact convex subset of ℝⁿ has a fixed point. Mathlib has Brouwer's theorem for the closed ball; the student will likely need (or need to prove) the version for an arbitrary nonempty compact convex set in a finite-dimensional real normed space, obtained from the ball version by a homeomorphism.
+
+2. **Construct ε-nets and Schauder projections.** Since `s` is compact, for every ε > 0 there is a finite subset `Nε = {x₁, …, x_{kε}} ⊆ s` whose ε-balls cover `s`. Define the Schauder projection `P_ε : s → s` by the partition-of-unity formula
+   `P_ε(x) = (Σᵢ μᵢ(x) xᵢ) / (Σᵢ μᵢ(x))`,
+   where `μᵢ(x) = max(0, ε − ‖x − xᵢ‖)`. The denominator is strictly positive because the ε-balls cover `s`. Verify: (a) `P_ε` is continuous on `s`; (b) `P_ε(x)` lies in the convex hull `Cε := convexHull ℝ Nε ⊆ s` (using `hs_convex`); (c) `‖P_ε(x) − x‖ ≤ ε` for all `x ∈ s`. Mathlib has `convexHull` and finite-sum machinery, but the explicit Schauder projection construction is likely not present and must be built by hand.
+
+3. **Apply Brouwer in each finite-dimensional slice.** The set `Cε` is a nonempty compact convex subset of the finite-dimensional subspace `span ℝ Nε`. The composition `g_ε := P_ε ∘ f : Cε → Cε` is continuous (using `hf_cont` and continuity of `P_ε`), so by Brouwer's theorem it has a fixed point `y_ε ∈ Cε ⊆ s`. Note `y_ε = P_ε(f(y_ε))`, hence `‖y_ε − f(y_ε)‖ = ‖P_ε(f(y_ε)) − f(y_ε)‖ ≤ ε`.
+
+4. **Pass to the limit using compactness.** Take `ε = 1/n` and let `yₙ` be the corresponding fixed points. Since `s` is compact (sequential compactness in metric spaces), extract a subsequence `y_{nₖ} → x ∈ s`. By continuity of `f` on `s`, `f(y_{nₖ}) → f(x)`. From `‖y_{nₖ} − f(y_{nₖ})‖ ≤ 1/nₖ → 0` we conclude `f(x) = x`.
+
+5. **Combine with `hf_maps` and `hs_nonempty`.** `hs_nonempty` ensures the ε-nets are nonempty so `Cε` is nonempty; `hf_maps` ensures `f(Cε) ⊆ s` so the composition `P_ε ∘ f` is well-defined on `Cε`. Output the witness `x` and the equation `f x = x`.
+
+**Difficulty warning.** This is a substantial formalization: the Schauder projection, the ambient-set version of Brouwer in arbitrary finite dimension, and the limiting argument all need careful work. As of recent Mathlib, Brouwer is available for the ball, but the full Schauder theorem and the projection construction are, to my knowledge, not yet in the library and will need to be developed.
