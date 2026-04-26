@@ -8,6 +8,23 @@ Through Lea v2.1 (April 2026): `lake env lean` compilation + grep for `sorry`, b
 
 From 2026-04-26 onward: [SafeVerify](third_party/SafeVerify/) ([upstream](https://github.com/GasStationManager/SafeVerify)) — kernel replay against the canonical `Main.lean`, per-declaration body/type match, axiom whitelist. Catches namespace shadowing, `:= True/False` trivializations, import-sorry, and empty/comment-only file bypasses in one place. Pass rates from v2.1 onward are audit-free.
 
+### SafeVerify false positives: universe-parameter alpha-equivalence
+
+When the submission has helper lemmas before `MainTheorem` that consume universe parameters first, `MainTheorem`'s auto-allocated `u_3, u_4` doesn't textually match the target's `u_1, u_2`. SafeVerify reports this as a "theorem type mismatch" even though the types are structurally identical and alpha-equivalent. Concretely, on the Opus BanachStone solve from 2026-04-26:
+
+```
+Expected level params: [u_1, u_2]
+Got level params:      [u_3, u_4]
+```
+
+The Expected and Got types differ only in (a) universe-param names and (b) auto-generated `inst._@.<module path>._hyg.N` instance names — both alpha-bound. The proof itself is mathematically identical to the target.
+
+**Why this hits BanachStone but not ColorfulCaratheodory / ParisHarrington / GleasonKahaneZelazko:** the BanachStone helpers (`norm_add_sub_le_one`, `S_sq_eq`, `homeo_of_algEquiv`, etc.) are universe-polymorphic over the same `Type*` variables as `MainTheorem`. They allocate `u_1, u_2` first. The other proofs' helpers don't reach the universe-allocation order issue.
+
+**Mitigation:** [`eval/utils/verify.py`](eval/utils/verify.py) detects this specific failure mode (`theorem type mismatch` whose Expected and Got types are equal after canonicalizing `u_\d+` and `inst._@.<...>_hyg.\d+` names) and accepts it with a note. Real shadows still produce structurally different types and fail. The 3-cheat regression suite (`tests/cheats/test_cheats.py`) confirms the alpha-equivalence relaxation does not let any known cheat pass.
+
+**Upstream fix:** SafeVerify should compare types modulo universe-parameter alpha-renaming. Worth a contribution to the upstream repo at some point.
+
 ## Lea v1 — Gemini 3.1 Pro, single-pass (no retries), default prompts
 
 | Benchmark | Pass rate | Problems | Avg cost | Avg time | Total time |
