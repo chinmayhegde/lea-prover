@@ -13,12 +13,12 @@ Usage:
 
 import argparse
 import json
-import re
-import subprocess
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+
+from eval.utils.verify import verify_proof as _safe_verify
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FQB_DIR = REPO_ROOT / "FormalQualBench"
@@ -49,35 +49,23 @@ def read_problem(problem_dir: Path) -> tuple[str, str]:
     return name, statement
 
 
-def verify_proof(proof_path: Path) -> tuple[bool, str]:
+def verify_proof(proof_path: Path, problem_name: str) -> tuple[bool, str]:
+    """SafeVerify against the original Main.lean: kernel replay + per-decl
+    body/type match + axiom whitelist. Catches namespace shadowing,
+    `:= True/False` trivializations, import-sorry, and empty-file
+    bypasses that the previous string-level checks couldn't see.
+
+    Tactic-query leakage (`exact?` / `apply?` / `simp?` / `decide?` /
+    `native_decide`) is checked separately because those tokens are
+    elaborated away before the .olean."""
     if not proof_path.exists():
         return False, "Proof file not found"
-
     content = proof_path.read_text()
-    if "sorry" in content:
-        return False, "Proof contains sorry"
-    for banned in ["axiom ", "native_decide", "exact?", "apply?", "simp?", "decide?"]:
+    for banned in ["native_decide", "exact?", "apply?", "simp?", "decide?"]:
         if banned in content:
-            return False, f"Proof contains disallowed '{banned.strip()}'"
-    if re.search(r"^\s*import\s+FormalQualBench\.\w+", content, re.MULTILINE):
-        return False, "Proof imports FormalQualBench.* (benchmark canonical module; contains target as sorry)"
-
-    try:
-        result = subprocess.run(
-            ["lake", "env", "lean", str(proof_path)],
-            capture_output=True, text=True, timeout=600,
-            cwd=str(FQB_DIR),
-        )
-        output = (result.stdout + "\n" + result.stderr).strip()
-        if result.returncode != 0:
-            return False, output if output else f"Exit code {result.returncode}"
-        if "declaration uses `sorry`" in output or "uses 'sorry'" in output:
-            return False, "Proof uses sorry (via tactic query)"
-        if "error" in output.lower():
-            return False, output
-        return True, output if output else "OK"
-    except subprocess.TimeoutExpired:
-        return False, "Compilation timed out (600s)"
+            return False, f"Proof contains disallowed '{banned}'"
+    target_src = PROBLEMS_DIR / problem_name / "Main.lean"
+    return _safe_verify(target_src=target_src, submission_src=proof_path, lake_project=FQB_DIR)
 
 
 def run_single_attempt(problem_name: str, statement: str, model: str,
@@ -122,7 +110,7 @@ def run_single_attempt(problem_name: str, statement: str, model: str,
     elapsed = time.time() - start
     finished_at = datetime.now(timezone.utc).isoformat()
 
-    success, verify_output = verify_proof(proof_path)
+    success, verify_output = verify_proof(proof_path, problem_name)
 
     # Save transcript
     transcript_data = {
