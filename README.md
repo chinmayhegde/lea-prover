@@ -73,6 +73,19 @@ Cost figures are the harness estimate using uncached input pricing and do not ac
 
 Detailed per-problem breakdowns, cheat analysis, and cross-model comparisons are in [`fqb-reports/`](fqb-reports/).
 
+### Lea v2.1 — best-of-5 baseline, independent attempts (current)
+
+The `--feedback` gate was removed after the [blueprint + selective-feedback experiment](fqb-reports/fqb-blueprint-selfb-report.md) showed it was net-negative across both models. Current configuration: best-of-5 with independent trials, lean4-skills prompt patches retained, plus a verifier-level rejection of `import FormalQualBench.*` to block the GPT-style import-sorry exploit.
+
+| Model | Benchmark | Pass rate | Avg cost | Avg time | Total time |
+|-------|-----------|-----------|----------|----------|------------|
+| **Claude Opus 4.7** | FormalQualBench | **6/23 (26%)** legit | $19.25 | 11m 20s | 4h 20m |
+| Gemini 3.1 Pro | FormalQualBench | **5/23 (22%)** legit | $11.15 | 32m 7s | 12h 18m |
+
+**6/23 is the new Lea best on FormalQualBench** ([detail report](fqb-reports/fqb-opus-bon5-report.md)). Multi-model union also lands at 6/23: Opus picks up Gleason–Kahane–Żelazko (a problem only OpenGauss and opencode have solved on the public leaderboard) which Gemini misses, while Gemini's audited solves in this run are a subset of Opus's.
+
+Audit notes: Opus's 7/23 raw included one cheat (`abbrev Free := True` shadowing of `Module.Free` on Quillen-Suslin) — the first documented Opus shadow on this benchmark, and a correction to the prior characterization that "Opus refuses honestly" (which held for easier problems but not when the path forward is genuinely impossible in Mathlib). Gemini's 7/23 raw included two cheats: a `def Prime := True` shadow on Green-Tao, and a one-line `-- Unprovable` file on Pontryagin Duality that exposed a verifier gap (the harness checks for `sorry`/banned tokens/compilation but not that the submitted file actually contains the target theorem). The verifier patch is straightforward; the proper fix is FormalQualBench's [Comparator](https://github.com/leanprover/comparator) or [SafeVerify](https://github.com/GasStationManager/SafeVerify), tracked as a project-level TODO.
+
 ### Running evals
 
 ```bash
