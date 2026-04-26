@@ -23,7 +23,7 @@ SAFE_VERIFY_DIR = REPO_ROOT / "third_party" / "SafeVerify"
 
 
 _UNIV_RE = re.compile(r"\bu_\d+\b")
-_HYG_RE = re.compile(r"inst\._@\.[\w.]+\._hygCtx\._hyg\.\d+")
+_HYG_RE = re.compile(r"inst\._@\.[\w.\-]+\._hygCtx\._hyg\.\d+")
 
 
 def _normalize_for_alpha(s: str) -> str:
