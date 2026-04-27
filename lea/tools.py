@@ -8,11 +8,13 @@ from pathlib import Path
 TOOLS_SCHEMA = [
     {
         "name": "read_file",
-        "description": "Read the contents of a file.",
+        "description": "Read the contents of a file. Optionally restrict to a line range (1-indexed, inclusive) to avoid pulling large files into context.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "Path to the file to read."}
+                "path": {"type": "string", "description": "Path to the file to read."},
+                "start_line": {"type": "integer", "description": "Optional 1-indexed first line to include."},
+                "end_line": {"type": "integer", "description": "Optional 1-indexed last line to include (inclusive)."},
             },
             "required": ["path"],
         },
@@ -71,7 +73,7 @@ TOOLS_SCHEMA = [
     },
     {
         "name": "search_mathlib",
-        "description": "Search Mathlib for lemmas/theorems matching a query. Greps Mathlib source files for the query string.",
+        "description": "Search Mathlib for lemmas/theorems matching a query. Greps Mathlib source files for the query string. If you are proving in a specific Lake project (e.g., miniF2F, FormalQualBench), pass `path` so the search uses THAT project's Mathlib version — different projects pin different Mathlib versions, and a hit in the wrong version is worse than no hit.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -83,6 +85,10 @@ TOOLS_SCHEMA = [
                     "type": "integer",
                     "description": "Maximum number of results to return.",
                     "default": 10,
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Optional path to a .lean file or directory inside a Lake project. If provided, search Mathlib in that project's Lake packages instead of the default workspace Mathlib.",
                 },
             },
             "required": ["query"],
@@ -100,11 +106,19 @@ def _find_lake_root(path: str) -> str | None:
     return None
 
 
-def read_file(path: str) -> str:
+def read_file(path: str, start_line: int | None = None, end_line: int | None = None) -> str:
     p = Path(path).expanduser()
     if not p.exists():
         return f"Error: {p} does not exist."
-    return p.read_text()
+    text = p.read_text()
+    if start_line is None and end_line is None:
+        return text
+    lines = text.splitlines(keepends=True)
+    s = max(0, (start_line or 1) - 1)
+    e = end_line if end_line is not None else len(lines)
+    sliced = "".join(lines[s:e])
+    header = f"# lines {s + 1}-{min(e, len(lines))} of {len(lines)} in {p}\n"
+    return header + sliced
 
 
 def write_file(path: str, content: str) -> str:
@@ -173,18 +187,38 @@ def bash(command: str, timeout: int = 120) -> str:
 WORKSPACE = Path(__file__).resolve().parent.parent / "workspace"
 
 
-def search_mathlib(query: str, max_results: int = 10) -> str:
-    # Look for Mathlib in the workspace's Lake packages
-    candidates = [
-        WORKSPACE / ".lake" / "packages" / "mathlib" / "Mathlib",
-        WORKSPACE / "lake-packages" / "mathlib" / "Mathlib",
-    ]
-
-    search_dir = None
-    for candidate in candidates:
+def _mathlib_for_lake_root(lake_root: Path) -> Path | None:
+    for sub in (".lake/packages/mathlib/Mathlib", "lake-packages/mathlib/Mathlib"):
+        candidate = lake_root / sub
         if candidate.exists():
-            search_dir = str(candidate)
-            break
+            return candidate
+    return None
+
+
+def search_mathlib(query: str, max_results: int = 10, path: str | None = None) -> str:
+    search_dir = None
+    project_label = "default workspace"
+
+    if path:
+        lake_root_str = _find_lake_root(path)
+        if lake_root_str:
+            mathlib = _mathlib_for_lake_root(Path(lake_root_str))
+            if mathlib:
+                search_dir = str(mathlib)
+                project_label = lake_root_str
+            else:
+                return f"Error: Mathlib not found under Lake project at {lake_root_str}. Ensure Mathlib is a Lake dependency."
+        else:
+            return f"Error: no Lake project (lakefile.lean/lakefile.toml) found above {path}."
+
+    if not search_dir:
+        for candidate in (
+            WORKSPACE / ".lake" / "packages" / "mathlib" / "Mathlib",
+            WORKSPACE / "lake-packages" / "mathlib" / "Mathlib",
+        ):
+            if candidate.exists():
+                search_dir = str(candidate)
+                break
 
     if not search_dir:
         return "Error: Mathlib source not found. Ensure Mathlib is a Lake dependency."
@@ -199,7 +233,7 @@ def search_mathlib(query: str, max_results: int = 10) -> str:
         files = result.stdout.strip().split("\n")
         files = [f for f in files if f][:max_results]
         if not files:
-            return f"No Mathlib results for '{query}'."
+            return f"No Mathlib results for '{query}' in {project_label}."
 
         # Get matching lines from each file
         lines = []
@@ -218,7 +252,7 @@ def search_mathlib(query: str, max_results: int = 10) -> str:
             if len(lines) >= max_results:
                 break
 
-        return f"Found {len(lines)} matches:\n" + "\n".join(lines)
+        return f"Found {len(lines)} matches in {project_label}:\n" + "\n".join(lines)
     except subprocess.TimeoutExpired:
         return "Error: search timed out."
 
@@ -226,9 +260,9 @@ def search_mathlib(query: str, max_results: int = 10) -> str:
 # Dispatch table
 TOOL_HANDLERS = {
     "bash": lambda args: bash(args["command"], args.get("timeout", 120)),
-    "read_file": lambda args: read_file(args["path"]),
+    "read_file": lambda args: read_file(args["path"], args.get("start_line"), args.get("end_line")),
     "write_file": lambda args: write_file(args["path"], args["content"]),
     "edit_file": lambda args: edit_file(args["path"], args["old_string"], args["new_string"]),
     "lean_check": lambda args: lean_check(args["path"]),
-    "search_mathlib": lambda args: search_mathlib(args["query"], args.get("max_results", 10)),
+    "search_mathlib": lambda args: search_mathlib(args["query"], args.get("max_results", 10), args.get("path")),
 }

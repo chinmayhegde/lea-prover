@@ -214,7 +214,10 @@ def run(
         for tc in tool_calls:
             handler = TOOL_HANDLERS.get(tc["name"])
             if handler:
-                result = handler(tc["args"])
+                try:
+                    result = handler(tc["args"])
+                except Exception as e:
+                    result = f"Error: tool '{tc['name']}' raised {type(e).__name__}: {e}"
             else:
                 result = f"Error: unknown tool '{tc['name']}'"
 
