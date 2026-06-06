@@ -1,0 +1,26 @@
+# Example config: prove with the lean-lsp-mcp server + a Lean skill.
+#
+# This overlays configs/default.yaml, so the model and its kwargs are inherited
+# (override with `-m provider/model` or add a `model:` block here). See
+# docs/lean-lsp-mcp.md for the full walkthrough.
+#
+# Run from the repo root (so the skill path and workspace resolve):
+#   uv run lea --config configs/lean-lsp.yaml "Prove that 2 + 2 = 4."
+
+agent:
+  # Inject procedural knowledge on how to drive the Lean LSP tools.
+  skills: [skills/lean_lsp_proving.md]
+  # tools: null  → the six built-ins PLUS every lean-lsp tool (default).
+  # To hand the model a focused set, list names, e.g.:
+  #   tools: [write_file, lean_run_code, lean_goal, lean_loogle, lean_local_search]
+
+mcp:
+  servers:
+    lean-lsp:
+      command: uvx
+      args: [lean-lsp-mcp]
+      env:
+        # Absolute path to a Lean 4 project root (lakefile + a built Mathlib).
+        # Edit this to your project. The bundled workspace/ works once built
+        # (cd workspace && lake exe cache get && lake build).
+        LEAN_PROJECT_PATH: /ABSOLUTE/PATH/TO/lea-prover/workspace

@@ -277,3 +277,12 @@ TOOL_HANDLERS = {
     "lean_check": lambda args: lean_check(args["path"]),
     "search_mathlib": lambda args: search_mathlib(args["query"], args.get("max_results", 10), args.get("path")),
 }
+
+
+# Register the built-ins with the shared registry, in TOOLS_SCHEMA order. The
+# loop selects from the registry (build_toolset); these globals remain the
+# human-readable source of truth for the built-in tools and stay importable.
+from .registry import Tool, register  # noqa: E402
+
+for _schema in TOOLS_SCHEMA:
+    register(Tool(name=_schema["name"], schema=_schema, handler=TOOL_HANDLERS[_schema["name"]]))

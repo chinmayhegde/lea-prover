@@ -2,13 +2,16 @@
 
 from pathlib import Path
 
+from .skills import load_skills
+
 WORKSPACE = Path(__file__).resolve().parent.parent / "workspace" / "proofs"
 
 
-def load_system_prompt(variant: str = "default") -> str:
-    """Build the system prompt, appending lea.md if present.
+def load_system_prompt(variant: str = "default", skills: list[str] | None = None) -> str:
+    """Build the system prompt: base variant + implicit lea.md + configured skills.
 
-    Variants: "default", "sketch", "fill", "reflect"
+    Variants: "default", "sketch", "fill", "reflect". `skills` is the list of
+    skill files from `agent.skills`, appended in order after the lea.md block.
     """
     prompts = {
         "default": BASE_PROMPT,
@@ -17,11 +20,13 @@ def load_system_prompt(variant: str = "default") -> str:
         "reflect": REFLECT_PROMPT,
     }
     prompt = prompts[variant]
-    # Look for lea.md in cwd, then workspace root
+    # Look for lea.md in cwd, then workspace root (implicit, kept for back-compat)
     for candidate in [Path.cwd() / "lea.md", WORKSPACE.parent / "lea.md"]:
         if candidate.exists():
             prompt += "\n\n## Project-Specific Instructions\n" + candidate.read_text()
             break
+    # Explicit, config-driven skills (procedural knowledge), in list order.
+    prompt += load_skills(skills or [])
     return prompt
 
 

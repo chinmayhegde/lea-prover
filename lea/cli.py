@@ -3,8 +3,9 @@
 import argparse
 import sys
 
-from .agent import run, list_sessions, DEFAULT_MODEL
-from .prompt import WORKSPACE
+from .config import load_config, DEFAULT_CONFIG_PATH
+from .agent import run_events, list_sessions
+from .render import render_to_stdout
 
 
 def main():
@@ -17,13 +18,15 @@ def main():
         help="Math statement to formalize (or reads from stdin if omitted).",
     )
     parser.add_argument(
-        "-m", "--model", default=DEFAULT_MODEL, help=f"Model to use (default: {DEFAULT_MODEL})",
+        "--config", default=str(DEFAULT_CONFIG_PATH),
+        help=f"Path to a YAML config, overlaid on the defaults (default: {DEFAULT_CONFIG_PATH}).",
     )
     parser.add_argument(
-        "-p", "--provider", default=None, help="Provider: gemini, anthropic, openai (auto-detected from model name if omitted)",
+        "-m", "--model", default=None,
+        help="Model to use as LiteLLM 'provider/model' (overrides config).",
     )
     parser.add_argument(
-        "--max-turns", type=int, default=None, help="Max agent turns (default: unlimited)",
+        "--max-turns", type=int, default=None, help="Max agent turns (overrides config).",
     )
     parser.add_argument(
         "--sketch", action="store_true", help="Use the sketch prompt (produce a proof skeleton with sorry's).",
@@ -56,23 +59,19 @@ def main():
             sys.exit(1)
         task = sys.stdin.read().strip()
 
-    # Select prompt variant
+    # Build config, then apply CLI overrides (flag beats file).
+    config = load_config(args.config)
+    if args.model:
+        config.model_name = args.model
+    if args.max_turns is not None:
+        config.max_turns = args.max_turns
     if args.sketch:
-        variant = "sketch"
+        config.prompt_variant = "sketch"
     elif args.fill:
-        variant = "fill"
-    else:
-        variant = "default"
+        config.prompt_variant = "fill"
 
-    result = run(
-        task=task or "",
-        model=args.model,
-        max_turns=args.max_turns,
-        provider=args.provider,
-        resume=args.resume,
-        prompt_variant=variant,
-    )
-    print(result)
+    text, _ = render_to_stdout(run_events(config, task or "", resume=args.resume))
+    print(text)
 
 
 if __name__ == "__main__":

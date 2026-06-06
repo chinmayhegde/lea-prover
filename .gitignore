@@ -7,6 +7,13 @@ build/
 .venv/
 uv.lock
 
+# Secrets — never commit API keys or tokens
+.gemini_key
+.github_token
+*.key
+*.token
+.env
+
 # Lean
 .lake/
 *.olean

@@ -1,0 +1,24 @@
+# Lea default configuration — the single source of truth for default behavior.
+# Always loaded as the base; a user `--config FILE` overlays on top of it.
+
+model:
+  name: gemini/gemini-3.1-pro-preview   # LiteLLM "provider/model" identifier
+  stream: true                          # true → stream tokens live; false → one blocking call
+  model_kwargs:                         # passed straight to litellm.completion(**model_kwargs)
+    max_tokens: 16384                   # add temperature, reasoning_effort, etc. here as needed
+
+agent:
+  prompt_variant: default               # which system-prompt variant to load
+  max_turns: null                       # null → run until the proof is done
+  tools: null                           # null → all registered tools; or list names to allow + order them
+                                        #   e.g. [read_file, write_file, edit_file, lean_check, search_mathlib]  (drops bash)
+  tool_modules: []                      # python modules to import so their custom tools register
+                                        #   e.g. [my_pkg.lea_tools]
+  skills: []                            # markdown files of procedural knowledge to inject, in order
+                                        #   e.g. [skills/induction.md, skills/tactic_cascade.md]
+  narrate_tool_steps: false             # true -> prompt the model to summarize before tool calls
+
+mcp:
+  servers: {}                           # external MCP servers; their tools register as <server>__<tool>
+                                        # stdio:  myserver: {command: npx, args: [...], env: {}}
+                                        # remote: myserver: {url: https://host/mcp, headers: {}, transport: http}

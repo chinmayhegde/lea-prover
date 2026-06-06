@@ -1,35 +1,143 @@
-"""Lea agent — the core loop. Model calls tools until done."""
+"""Lea agent — the core loop. Model calls tools until done.
+
+`run_events()` is the generator core: it yields a typed event stream and never
+prints. `run()` is a backward-compatible wrapper that drains those events through
+the default stdout renderer and returns the final text (and optional transcript),
+so existing callers (CLI, eval) keep working unchanged.
+"""
 
 import json
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .config import LeaConfig, load_config
 from .prompt import load_system_prompt
-from .providers import stream, detect_provider, TextDelta, ToolCall, Done, _ToolMeta, Usage
-from .tools import TOOLS_SCHEMA, TOOL_HANDLERS
+from .providers import stream, TextDelta, ToolCall, Done, _ToolMeta, Usage
+from . import tools as _tools  # noqa: F401 — importing registers the built-in tools
+from .registry import build_toolset, import_tool_modules
+from .events import (
+    SessionResumed,
+    TurnStarted,
+    AssistantTextDelta,
+    ToolCalled,
+    ToolResulted,
+    UsageUpdated,
+    Finished,
+)
+from .render import render_to_stdout
 
 SESSIONS_DIR = Path.home() / ".lea" / "sessions"
 
-DEFAULT_MODEL = "gemini-3.1-pro-preview"
+_UNSET = object()  # sentinel: distinguishes "caller omitted arg" from an explicit None
 
-# Per-million-token pricing (input, output). Best-effort estimates.
-MODEL_PRICING = {
-    "gemini-2.5-pro": (1.25, 10.0),
-    "gemini-2.5-flash": (0.15, 0.60),
-    "gemini-3-pro-preview": (1.25, 10.0),
-    "gemini-3.1-pro-preview": (1.25, 10.0),
-    "claude-sonnet-4-20250514": (3.0, 15.0),
-    "claude-opus-4-20250514": (15.0, 75.0),
-    "claude-sonnet-4-6": (3.0, 15.0),
-    "claude-opus-4-7": (15.0, 75.0),
-    "claude-haiku-4-5-20251001": (1.0, 5.0),
-    "gpt-4o": (2.50, 10.0),
-    "gpt-5.4-pro-2026-03-05": (2.5, 15.0),
-    "o3": (2.0, 8.0),
-    "o4-mini": (1.10, 4.40),
-}
-DEFAULT_PRICING = (2.0, 10.0)
+
+_NARRATE_TOOL_STEPS_INSTRUCTION = """
+
+When you are about to call one or more tools, first write a concise progress
+summary for the user. Keep it to one or two sentences, use Markdown when helpful,
+and include mathematical notation in normal LaTeX delimiters when useful. Explain
+what you are trying next and why, then call the tool. Do not narrate after every
+minor token or repeat boilerplate; summarize the meaningful proof step.
+"""
+
+
+_FORCED_TOOL_NARRATION_INSTRUCTION = """
+
+You are Lea explaining the next proof action to the user. The main model turn
+selected a tool call without first writing user-facing narration. Write the
+missing narration now.
+
+Rules:
+- Write one concise paragraph unless the mathematical plan genuinely benefits
+  from a short numbered list.
+- Explain the mathematical or Lean proof move being attempted and why it is the
+  next useful step.
+- Use Markdown and ordinary LaTeX delimiters when helpful.
+- Do not mention JSON, API internals, or hidden/private reasoning.
+- Do not call tools. Return only the narration text.
+"""
+
+
+def _tool_call_for_prompt(name: str, args: dict) -> dict:
+    """Compact a tool call enough to show a narration-only model pass."""
+    compact: dict = {}
+    for key, value in args.items():
+        if isinstance(value, str):
+            if key == "content" and len(value) > 1600:
+                compact[key] = value[:1600] + "\n... [truncated]"
+            elif len(value) > 800:
+                compact[key] = value[:800] + "... [truncated]"
+            else:
+                compact[key] = value
+        else:
+            compact[key] = value
+    return {"name": name, "args": compact}
+
+
+def _forced_tool_narration(
+    *,
+    model: str,
+    system: str,
+    messages: list,
+    tool_name: str,
+    tool_args: dict,
+    config: LeaConfig,
+):
+    """Ask the model for narration when a tool-only turn would otherwise be silent."""
+    narration_messages = messages + [{
+        "role": "user",
+        "content": (
+            "Write the user-facing narration that should appear immediately "
+            "before this Lea tool call:\n"
+            f"{json.dumps(_tool_call_for_prompt(tool_name, tool_args), ensure_ascii=False, indent=2)}"
+        ),
+    }]
+    text = ""
+    usage = Usage()
+    cost = 0.0
+    try:
+        for event in stream(
+            model,
+            system + _FORCED_TOOL_NARRATION_INSTRUCTION,
+            narration_messages,
+            [],
+            config.model_kwargs,
+            streaming=config.stream,
+        ):
+            if isinstance(event, TextDelta):
+                text += event.text
+                yield event
+            elif isinstance(event, Done):
+                usage.input_tokens += event.usage.input_tokens
+                usage.output_tokens += event.usage.output_tokens
+                cost += event.cost
+    except Exception:
+        fallback = _fallback_tool_narration(tool_name, tool_args)
+        text += fallback
+        yield TextDelta(fallback)
+    return text.strip(), usage, cost
+
+
+def _fallback_tool_narration(tool_name: str, args: dict) -> str:
+    path = args.get("path")
+    if tool_name == "write_file":
+        if isinstance(path, str) and path:
+            return f"I will write the next Lean proof attempt in `{path}` and then check whether it compiles."
+        return "I will write the next Lean proof attempt and then check whether it compiles."
+    if tool_name == "edit_file":
+        if isinstance(path, str) and path:
+            return f"I will revise `{path}` to address the previous Lean feedback, then re-run the checker."
+        return "I will revise the Lean proof to address the previous checker feedback, then re-run it."
+    if tool_name == "lean_check":
+        if isinstance(path, str) and path:
+            return f"I will run Lean on `{path}` to verify the current proof and inspect any errors."
+        return "I will run Lean to verify the current proof and inspect any errors."
+    if tool_name == "search_mathlib":
+        query = args.get("query")
+        if isinstance(query, str) and query:
+            return f"I will search Mathlib for lemmas related to `{query}` so the next proof step can use existing results."
+        return "I will search Mathlib for a relevant lemma before continuing the proof."
+    return f"I will use `{tool_name}` for the next proof step and then use its result to continue."
 
 
 def _save_session(session_id: str, model: str, messages: list, usage: Usage):
@@ -93,25 +201,41 @@ def list_sessions() -> list[dict]:
     return summaries
 
 
-def run(
-    task: str,
-    model: str = DEFAULT_MODEL,
-    max_turns: int | None = None,
-    provider: str | None = None,
-    resume: str | bool = False,
-    return_transcript: bool = False,
-    prompt_variant: str = "default",
-) -> str | tuple[str, dict]:
-    """Run the agent on a formalization task.
+def run_events(config: LeaConfig, task: str, *, resume: str | bool = False):
+    """Core loop as a generator: yields typed events, never prints.
 
-    Returns the final assistant message, or (message, transcript_dict) if
-    return_transcript is True.
+    Yields SessionResumed?, then per turn: TurnStarted, AssistantTextDelta*,
+    ToolCalled*, UsageUpdated, ToolResulted*, and finally Finished.
+
+    Owns MCP lifecycle: starts configured servers (which register their tools)
+    before the inner loop resolves the toolset, and stops them when the event
+    stream ends or is closed.
     """
-    system = load_system_prompt(prompt_variant)
+    mcp_manager = None
+    if config.mcp_servers:
+        from .mcp import MCPManager
+        mcp_manager = MCPManager(config.mcp_servers)
+        mcp_manager.start()
+    try:
+        yield from _run_events_inner(config, task, resume=resume)
+    finally:
+        if mcp_manager is not None:
+            mcp_manager.stop()
+
+
+def _run_events_inner(config: LeaConfig, task: str, *, resume: str | bool = False):
+    system = load_system_prompt(config.prompt_variant, config.skills)
+    if config.narrate_tool_steps:
+        system += _NARRATE_TOOL_STEPS_INSTRUCTION
+    model = config.model_name
+
+    # Resolve the active toolset once: import any user tool modules so their
+    # tools register, then select per config (None → all registered tools).
+    import_tool_modules(config.tool_modules)
+    tools_schema, tool_handlers = build_toolset(config.tools)
 
     if resume:
-        session_id_to_load = resume if isinstance(resume, str) else None
-        session = _load_session(session_id_to_load)
+        session = _load_session(resume if isinstance(resume, str) else None)
         messages = session["messages"]
         model = session.get("model", model)
         session_id = session["id"]
@@ -119,77 +243,99 @@ def run(
             session.get("usage", {}).get("input_tokens", 0),
             session.get("usage", {}).get("output_tokens", 0),
         )
-        # Append the new task as a follow-up message
         if task:
             messages.append({"role": "user", "content": task})
-        print(f"Resuming session {session_id} ({len(messages)} messages)", flush=True)
+        yield SessionResumed(session_id, len(messages))
     else:
         session_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         messages = [{"role": "user", "content": task}]
         total_usage = Usage()
 
-    provider_name = provider or detect_provider(model)
+    total_cost = 0.0
 
-    def _result(text: str, turns: int):
-        if return_transcript:
-            # Build a clean transcript (no raw_part)
-            clean = []
-            for msg in messages:
-                if msg["role"] == "assistant" and isinstance(msg["content"], list):
-                    clean.append({"role": "assistant", "content": [
-                        {k: v for k, v in item.items() if k != "raw_part"}
-                        for item in msg["content"]
-                    ]})
-                else:
-                    clean.append(msg)
-            transcript = {
-                "session_id": session_id,
-                "model": model,
-                "turns": turns,
-                "usage": {"input_tokens": total_usage.input_tokens, "output_tokens": total_usage.output_tokens},
-                "messages": clean,
-            }
-            return text, transcript
-        return text
+    def transcript(turns: int) -> dict:
+        clean = []
+        for msg in messages:
+            if msg["role"] == "assistant" and isinstance(msg["content"], list):
+                clean.append({"role": "assistant", "content": [
+                    {k: v for k, v in item.items() if k != "raw_part"}
+                    for item in msg["content"]
+                ]})
+            else:
+                clean.append(msg)
+        return {
+            "session_id": session_id,
+            "model": model,
+            "turns": turns,
+            "usage": {"input_tokens": total_usage.input_tokens, "output_tokens": total_usage.output_tokens},
+            "messages": clean,
+        }
 
     turn = 0
     while True:
         turn += 1
-        if max_turns and turn > max_turns:
+        if config.max_turns and turn > config.max_turns:
             _save_session(session_id, model, messages, total_usage)
-            _print_usage(model, turn - 1, total_usage)
-            return _result("Error: max turns reached without completing the proof.", turn - 1)
+            yield Finished("max_turns", "Error: max turns reached without completing the proof.",
+                           turn - 1, session_id, model, total_usage, total_cost, transcript(turn - 1))
+            return
 
-        print(f"\n--- turn {turn} ---", flush=True)
+        yield TurnStarted(turn)
 
-        # Collect events from the stream
-        assistant_parts = []  # list of {"type": "text"/"tool_call", ...}
+        assistant_parts = []
         current_text = ""
-        tool_calls = []  # list of (name, args, id_or_none)
+        tool_calls = []
+        forced_narration_emitted = False
 
-        for event in stream(model, system, messages, TOOLS_SCHEMA, provider_name):
+        for event in stream(model, system, messages, tools_schema, config.model_kwargs, streaming=config.stream):
             if isinstance(event, TextDelta):
-                sys.stdout.write(event.text)
-                sys.stdout.flush()
                 current_text += event.text
+                yield AssistantTextDelta(event.text)
             elif isinstance(event, ToolCall):
+                if config.narrate_tool_steps and not forced_narration_emitted and not current_text and not any(
+                    part.get("type") == "text" and part.get("text") for part in assistant_parts
+                ):
+                    narration = _forced_tool_narration(
+                        model=model,
+                        system=system,
+                        messages=messages,
+                        tool_name=event.name,
+                        tool_args=event.args,
+                        config=config,
+                    )
+                    try:
+                        while True:
+                            narration_event = next(narration)
+                            current_text += narration_event.text
+                            yield AssistantTextDelta(narration_event.text)
+                    except StopIteration as result:
+                        _, narration_usage, narration_cost = result.value
+                        total_usage.input_tokens += narration_usage.input_tokens
+                        total_usage.output_tokens += narration_usage.output_tokens
+                        total_cost += narration_cost
+                        if narration_usage.input_tokens or narration_usage.output_tokens or narration_cost:
+                            yield UsageUpdated(
+                                narration_usage.input_tokens,
+                                narration_usage.output_tokens,
+                                narration_cost,
+                            )
+                    forced_narration_emitted = True
                 if current_text:
                     assistant_parts.append({"type": "text", "text": current_text})
                     current_text = ""
-                print(f"\n  -> {event.name}({event.args})", flush=True)
+                yield ToolCalled(event.name, event.args)
                 tool_calls.append({"name": event.name, "args": event.args, "id": None, "raw_part": event.raw_part})
             elif isinstance(event, _ToolMeta):
-                # Attach the provider-specific ID to the last tool call
                 if tool_calls:
                     tool_calls[-1]["id"] = event.tool_use_id
             elif isinstance(event, Done):
                 total_usage.input_tokens += event.usage.input_tokens
                 total_usage.output_tokens += event.usage.output_tokens
+                total_cost += event.cost
+                yield UsageUpdated(event.usage.input_tokens, event.usage.output_tokens, event.cost)
 
         if current_text:
             assistant_parts.append({"type": "text", "text": current_text})
-
-        # Build assistant content with tool calls
         for tc in tool_calls:
             assistant_parts.append({
                 "type": "tool_call",
@@ -198,21 +344,18 @@ def run(
                 "id": tc["id"],
                 "raw_part": tc.get("raw_part"),
             })
-
         messages.append({"role": "assistant", "content": assistant_parts})
 
-        # If no tool calls, we're done
         if not tool_calls:
-            print()
             _save_session(session_id, model, messages, total_usage)
-            _print_usage(model, turn, total_usage)
             text = "".join(p["text"] for p in assistant_parts if p["type"] == "text")
-            return _result(text or "(no response)", turn)
+            yield Finished("completed", text or "(no response)", turn, session_id, model,
+                           total_usage, total_cost, transcript(turn))
+            return
 
-        # Execute tool calls and build results
         tool_results = []
         for tc in tool_calls:
-            handler = TOOL_HANDLERS.get(tc["name"])
+            handler = tool_handlers.get(tc["name"])
             if handler:
                 try:
                     result = handler(tc["args"])
@@ -222,10 +365,9 @@ def run(
                 result = f"Error: unknown tool '{tc['name']}'"
 
             preview = result[:200] + "..." if len(result) > 200 else result
-            print(f"  <- {preview}", flush=True)
+            yield ToolResulted(tc["name"], result, preview)
 
             tool_result = {"type": "tool_result", "tool_name": tc["name"], "content": result}
-            # Attach provider-specific IDs for message reconstruction
             if tc["id"]:
                 tool_result["tool_use_id"] = tc["id"]
                 tool_result["tool_call_id"] = tc["id"]
@@ -235,9 +377,28 @@ def run(
         _save_session(session_id, model, messages, total_usage)
 
 
-def _print_usage(model: str, turns: int, usage: Usage):
-    """Print a summary line with token counts and estimated cost."""
-    price_in, price_out = MODEL_PRICING.get(model, DEFAULT_PRICING)
-    cost = (usage.input_tokens * price_in + usage.output_tokens * price_out) / 1_000_000
-    total = usage.input_tokens + usage.output_tokens
-    print(f"\n--- {turns} turns, {total:,} tokens (in: {usage.input_tokens:,}, out: {usage.output_tokens:,}), ~${cost:.4f} ---", flush=True)
+def run(
+    task: str,
+    model: str | None = None,
+    max_turns=_UNSET,
+    provider: str | None = None,  # accepted for back-compat; LiteLLM routes by model name
+    resume: str | bool = False,
+    return_transcript: bool = False,
+    prompt_variant: str | None = None,
+) -> str | tuple[str, dict]:
+    """Backward-compatible wrapper: run the agent and render to stdout.
+
+    Builds a LeaConfig from defaults + any explicit overrides, drains the event
+    stream through the default renderer, and returns the final text (and the
+    transcript dict if return_transcript is True).
+    """
+    config = load_config(None)
+    if model is not None:
+        config.model_name = model
+    if prompt_variant is not None:
+        config.prompt_variant = prompt_variant
+    if max_turns is not _UNSET:
+        config.max_turns = max_turns
+
+    text, transcript = render_to_stdout(run_events(config, task or "", resume=resume))
+    return (text, transcript) if return_transcript else text
