@@ -2,9 +2,10 @@
 
 import argparse
 import sys
+from pathlib import Path
 
 from .agent import run, list_sessions, DEFAULT_MODEL
-from .prompt import WORKSPACE
+from .prompt import DEFAULT_WORKSPACE
 
 
 def main():
@@ -37,6 +38,12 @@ def main():
     )
     parser.add_argument(
         "--sessions", action="store_true", help="List recent sessions and exit.",
+    )
+    parser.add_argument(
+        "--workspace", type=Path, default=None,
+        metavar="DIR",
+        help=f"Directory where the agent writes .lean files (default: {DEFAULT_WORKSPACE}). "
+             "The Lake project root is inferred automatically for Mathlib search.",
     )
 
     args = parser.parse_args()
@@ -71,6 +78,7 @@ def main():
         provider=args.provider,
         resume=args.resume,
         prompt_variant=variant,
+        workspace=args.workspace,
     )
     print(result)
 

@@ -5,9 +5,11 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from pathlib import Path
+
 from .prompt import load_system_prompt
 from .providers import stream, detect_provider, TextDelta, ToolCall, Done, _ToolMeta, Usage
-from .tools import TOOLS_SCHEMA, TOOL_HANDLERS
+from .tools import TOOLS_SCHEMA, make_tool_handlers
 
 SESSIONS_DIR = Path.home() / ".lea" / "sessions"
 
@@ -101,13 +103,16 @@ def run(
     resume: str | bool = False,
     return_transcript: bool = False,
     prompt_variant: str = "default",
+    workspace: Path | None = None,
 ) -> str | tuple[str, dict]:
     """Run the agent on a formalization task.
 
     Returns the final assistant message, or (message, transcript_dict) if
     return_transcript is True.
+    workspace: Lake project root to use instead of the bundled workspace/.
     """
-    system = load_system_prompt(prompt_variant)
+    system = load_system_prompt(prompt_variant, workspace=workspace)
+    tool_handlers = make_tool_handlers(workspace)
 
     if resume:
         session_id_to_load = resume if isinstance(resume, str) else None
@@ -129,6 +134,15 @@ def run(
         total_usage = Usage()
 
     provider_name = provider or detect_provider(model)
+
+    from .prompt import DEFAULT_WORKSPACE
+    ws = workspace or DEFAULT_WORKSPACE
+    print(f"workspace:  {ws}", flush=True)
+    print(f"model:      {model}", flush=True)
+    print(f"provider:   {provider_name}", flush=True)
+    print(f"variant:    {prompt_variant}", flush=True)
+    print(f"max_turns:  {max_turns if max_turns is not None else 'unlimited'}", flush=True)
+    print(f"session:    {session_id}", flush=True)
 
     def _result(text: str, turns: int):
         if return_transcript:
@@ -212,7 +226,7 @@ def run(
         # Execute tool calls and build results
         tool_results = []
         for tc in tool_calls:
-            handler = TOOL_HANDLERS.get(tc["name"])
+            handler = tool_handlers.get(tc["name"])
             if handler:
                 try:
                     result = handler(tc["args"])

@@ -206,7 +206,7 @@ def _mathlib_for_lake_root(lake_root: Path) -> Path | None:
     return None
 
 
-def search_mathlib(query: str, max_results: int = 10, path: str | None = None) -> str:
+def search_mathlib(query: str, max_results: int = 10, path: str | None = None, default_workspace: Path | None = None) -> str:
     search_dir = None
     project_label = "default workspace"
 
@@ -222,10 +222,11 @@ def search_mathlib(query: str, max_results: int = 10, path: str | None = None) -
         else:
             return f"Error: no Lake project (lakefile.lean/lakefile.toml) found above {path}."
 
+    ws = default_workspace or WORKSPACE
     if not search_dir:
         for candidate in (
-            WORKSPACE / ".lake" / "packages" / "mathlib" / "Mathlib",
-            WORKSPACE / "lake-packages" / "mathlib" / "Mathlib",
+            ws / ".lake" / "packages" / "mathlib" / "Mathlib",
+            ws / "lake-packages" / "mathlib" / "Mathlib",
         ):
             if candidate.exists():
                 search_dir = str(candidate)
@@ -268,12 +269,27 @@ def search_mathlib(query: str, max_results: int = 10, path: str | None = None) -
         return "Error: search timed out."
 
 
-# Dispatch table
-TOOL_HANDLERS = {
-    "bash": lambda args: bash(args["command"], args.get("timeout", 120)),
-    "read_file": lambda args: read_file(args["path"], args.get("start_line"), args.get("end_line")),
-    "write_file": lambda args: write_file(args["path"], args["content"]),
-    "edit_file": lambda args: edit_file(args["path"], args["old_string"], args["new_string"]),
-    "lean_check": lambda args: lean_check(args["path"]),
-    "search_mathlib": lambda args: search_mathlib(args["query"], args.get("max_results", 10), args.get("path")),
-}
+def make_tool_handlers(workspace: Path | None = None) -> dict:
+    """Return a tool dispatch table, optionally binding a custom workspace for search_mathlib.
+
+    workspace is the directory where the agent writes .lean files. The Lake root for
+    Mathlib search is derived from it by walking up to find a lakefile.
+    """
+    mathlib_workspace: Path | None = None
+    if workspace is not None:
+        lake_root_str = _find_lake_root(str(workspace))
+        mathlib_workspace = Path(lake_root_str) if lake_root_str else workspace
+    return {
+        "bash": lambda args: bash(args["command"], args.get("timeout", 120)),
+        "read_file": lambda args: read_file(args["path"], args.get("start_line"), args.get("end_line")),
+        "write_file": lambda args: write_file(args["path"], args["content"]),
+        "edit_file": lambda args: edit_file(args["path"], args["old_string"], args["new_string"]),
+        "lean_check": lambda args: lean_check(args["path"]),
+        "search_mathlib": lambda args: search_mathlib(
+            args["query"], args.get("max_results", 10), args.get("path"), mathlib_workspace
+        ),
+    }
+
+
+# Dispatch table (default workspace)
+TOOL_HANDLERS = make_tool_handlers()

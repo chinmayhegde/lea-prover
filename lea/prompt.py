@@ -2,35 +2,54 @@
 
 from pathlib import Path
 
-WORKSPACE = Path(__file__).resolve().parent.parent / "workspace" / "proofs"
+DEFAULT_WORKSPACE = Path(__file__).resolve().parent.parent / "workspace" / "proofs"
+WORKSPACE = DEFAULT_WORKSPACE
 
 
-def load_system_prompt(variant: str = "default") -> str:
+def _lake_root(path: Path) -> Path | None:
+    """Walk up from path to find the nearest Lake project root."""
+    for p in [path, *path.parents]:
+        if (p / "lakefile.lean").exists() or (p / "lakefile.toml").exists():
+            return p
+    return None
+
+
+def load_system_prompt(variant: str = "default", workspace: Path | None = None) -> str:
     """Build the system prompt, appending lea.md if present.
 
     Variants: "default", "sketch", "fill", "reflect"
+    workspace: directory where the agent writes .lean files (default: bundled workspace/proofs/).
     """
+    ws = workspace or DEFAULT_WORKSPACE
     prompts = {
-        "default": BASE_PROMPT,
-        "sketch": SKETCH_PROMPT,
-        "fill": FILL_PROMPT,
-        "reflect": REFLECT_PROMPT,
+        "default": BASE_PROMPT(ws),
+        "sketch": SKETCH_PROMPT(ws),
+        "fill": FILL_PROMPT(ws),
+        "reflect": REFLECT_PROMPT(ws),
     }
     prompt = prompts[variant]
-    # Look for lea.md in cwd, then workspace root
-    for candidate in [Path.cwd() / "lea.md", WORKSPACE.parent / "lea.md"]:
+    # Search for lea.md in priority order, deduplicating identical paths.
+    # The Lake project root that ws belongs to has highest priority.
+    seen: set[Path] = set()
+    candidates: list[Path] = []
+    for p in filter(None, [ws, _lake_root(ws), Path.cwd()]):
+        if p not in seen:
+            seen.add(p)
+            candidates.append(p / "lea.md")
+    for candidate in candidates:
         if candidate.exists():
             prompt += "\n\n## Project-Specific Instructions\n" + candidate.read_text()
             break
     return prompt
 
 
-BASE_PROMPT = f"""\
+def BASE_PROMPT(workspace: Path) -> str:
+    return f"""\
 You are Lea, a Lean 4 formalization agent. Your job is to translate natural-language \
 math statements into Lean 4 proofs that compile with zero errors and zero `sorry`s.
 
 ## Workspace
-Write all .lean files to: {WORKSPACE}
+Write all .lean files to: {workspace}
 This directory is inside a Lake project with Mathlib available.
 
 ## Workflow
@@ -59,7 +78,7 @@ These are your most powerful tools for finding Mathlib lemmas. To use them: writ
 Use the `lean_check` **tool** (via your tool-calling interface) for ALL .lean compilation. `lean_check` is NOT a shell command — calling it from bash will fail with "lean_check: not found". Do not invoke `lake env lean` via `bash` either — the cwd handling is brittle. The `lean_check` tool auto-detects the lake root and returns structured diagnostics.
 
 ## Style
-- Start files with `import Mathlib` when needed.
+- NEVER DO `import Mathlib`. When you need to import from Mathlib, use the most precise import possible. Only import what you need.
 - Use `by` tactic mode for proofs.
 - Keep proofs short. Try the simplest tactic first before anything complex.
 - One theorem per file unless the user asks otherwise.
@@ -121,12 +140,13 @@ is a failure mode. A partial proof with intermediate lemmas beats no proof.
 """
 
 
-SKETCH_PROMPT = f"""\
+def SKETCH_PROMPT(workspace: Path) -> str:
+    return f"""\
 You are Lea, a Lean 4 formalization agent. Your job in this phase is to write a \
 **proof skeleton** — a decomposition of the theorem into intermediate steps.
 
 ## Workspace
-Write all .lean files to: {WORKSPACE}
+Write all .lean files to: {workspace}
 This directory is inside a Lake project with Mathlib available.
 
 ## Your task
@@ -147,12 +167,13 @@ Given a theorem to prove:
 """
 
 
-FILL_PROMPT = f"""\
+def FILL_PROMPT(workspace: Path) -> str:
+    return f"""\
 You are Lea, a Lean 4 formalization agent. Your job in this phase is to fill in a \
 single `sorry` in an existing proof.
 
 ## Workspace
-Write all .lean files to: {WORKSPACE}
+Write all .lean files to: {workspace}
 This directory is inside a Lake project with Mathlib available.
 
 ## Your task
@@ -175,12 +196,13 @@ Strategy:
 """
 
 
-REFLECT_PROMPT = f"""\
+def REFLECT_PROMPT(workspace: Path) -> str:
+    return f"""\
 You are Lea, a Lean 4 formalization agent. A previous proof attempt partially failed. \
 Your job is to analyze why and write a new proof skeleton.
 
 ## Workspace
-Write all .lean files to: {WORKSPACE}
+Write all .lean files to: {workspace}
 This directory is inside a Lake project with Mathlib available.
 
 ## Your task
