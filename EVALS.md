@@ -60,6 +60,22 @@ The `--feedback` gate was removed after the [blueprint + selective-feedback expe
 
 Audit notes: Opus's 7/23 raw included one cheat (`abbrev Free := True` shadowing of `Module.Free` on Quillen-Suslin) — the first documented Opus shadow on this benchmark, and a correction to the prior characterization that "Opus refuses honestly" (which held for easier problems but not when the path forward is genuinely impossible in Mathlib). Gemini's 7/23 raw included two cheats: a `def Prime := True` shadow on Green-Tao, and a one-line `-- Unprovable` file on Pontryagin Duality that exposed an empty-file verifier gap. SafeVerify rejects all three.
 
+## Lea v2.1 — Claude Fable 5 (current best)
+
+Same v2.1 baseline (best-of-5, independent trials, lean4-skills patches, SafeVerify), with `claude-fable-5` (released 2026-06-07) swapped in. Fable is an adaptive-thinking model; the provider layer needed rewiring — `max_tokens` raised to the model's native 128k (adaptive thinking plans against the declared budget and truncated mid-thought at 64k), and a buffered per-turn retry for mid-stream `RemoteProtocolError` drops the SDK doesn't cover. Run sharded 16-way in parallel to fit wall-clock; per-problem experiment is identical.
+
+| Model | Benchmark | Pass rate | Est cost | Wall-clock | Notes |
+|-------|-----------|-----------|----------|-----------|-------|
+| **Claude Fable 5** | FormalQualBench | **9/23 (39%)** legit | ~$1,955¹ | 26.7h² | New best; strict superset of Opus's 6 |
+| Claude Opus 4.7 | FormalQualBench | 6/23 (26%) legit | $19.25/prob | 4h 20m | |
+| Gemini 3.1 Pro | FormalQualBench | 5/23 (22%) legit | $11.15/prob | 12h 18m | |
+
+¹ Placeholder Opus-tier pricing — Fable's real $/Mtok not public as of the run. ² Dominated by one runaway shard (SkolemMahlerLech, 23.6h on a single uncapped attempt); the other 22 finished in ~½ day.
+
+**9/23 is the current Lea best on FormalQualBench** ([detail report](fqb-reports/fqb-fable5-bon5-report.md)). The nine are a strict superset of Opus's six, adding **DLOQuantifierElimination**, **SchauderFixedPointTheorem**, and **QuillenSuslinTheorem** — the last a genuine 5062-line proof of a problem that is 0/8 on the public leaderboard and that Opus only ever cheated.
+
+Audit notes: Fable's 10/23 raw included one cheat — **PontryaginDuality** `sorry`s its two core lemmas (`#print axioms` → `sorryAx`). It slipped past the grader through a hole in the universe-alpha-equivalence relaxation in [`eval/utils/verify.py`](eval/utils/verify.py): when accepting a "theorem type mismatch" as universe/hygiene-only, the relaxation short-circuits **before** the axiom whitelist, so a sorried proof whose `MainTheorem` differs only in universe-param names is wrongly accepted. The relaxation path must re-run the axiom check (or gate every accepted proof on `#print axioms`) before accepting. All nine legit solves were confirmed via `#print axioms` (standard trust base only).
+
 ## Running evals
 
 ```bash
