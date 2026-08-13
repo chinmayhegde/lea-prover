@@ -23,6 +23,11 @@ MODEL_PRICING = {
     "claude-opus-4-20250514": (15.0, 75.0),
     "claude-sonnet-4-6": (3.0, 15.0),
     "claude-opus-4-7": (15.0, 75.0),
+    "claude-opus-4-8": (15.0, 75.0),
+    # claude-fable-5 (released 2026-06-07): official $/Mtok not public as of
+    # 2026-06-10. Placeholder = Opus-tier; cost figures are ESTIMATES only and
+    # the harness already over-counts vs the cached-input dashboard bill.
+    "claude-fable-5": (15.0, 75.0),
     "claude-haiku-4-5-20251001": (1.0, 5.0),
     "gpt-4o": (2.50, 10.0),
     "gpt-5.4-pro-2026-03-05": (2.5, 15.0),

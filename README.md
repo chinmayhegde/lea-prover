@@ -49,7 +49,7 @@ Six tools: `read_file`, `write_file`, `edit_file`, `lean_check`, `search_mathlib
 
 ## Eval results
 
-Best result so far: **6/23 (26%) on FormalQualBench with Claude Opus 4.7 best-of-5** (Lea v2.1, independent attempts, SafeVerify-audited). See [EVALS.md](EVALS.md) for full methodology, configuration history, and per-run reports.
+Best result so far: **9/23 (39%) on FormalQualBench with Claude Fable 5 best-of-5** (Lea v2.1, independent attempts, SafeVerify- and `#print axioms`-audited) — a strict superset of the prior Opus 4.7 best of 6/23, adding DLO quantifier elimination, the Schauder fixed-point theorem, and a genuine 5062-line Quillen–Suslin proof (0/8 on the public leaderboard). See [EVALS.md](EVALS.md) for full methodology, configuration history, and per-run reports.
 
 ## Customization
 

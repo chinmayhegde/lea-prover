@@ -175,6 +175,28 @@ def _stream_anthropic(model, system, messages, tools):
                     })
             anthropic_messages.append({"role": "assistant", "content": content})
 
+    # Fable 5 (and later) reason with adaptive thinking whose tokens count
+    # toward the output budget. Adaptive thinking PLANS its reasoning against
+    # the declared max_tokens, so a value below the model's native ceiling makes
+    # it truncate mid-thought on hard problems (observed: 64k → 64000 pure
+    # thinking tokens, 0 text, 0 tool calls, FAIL on BanachStone). Declare the
+    # full native cap (128k) so it self-regulates and still has room to act.
+    # Adaptive-thinking blocks are streamed but not replayed — the API tolerates
+    # dropping them on the next tool-use turn (verified claude-fable-5, 2026-06-10).
+    max_tokens = 128000 if "fable" in model else 16384
+
+    # Long adaptive-thinking turns occasionally have the connection dropped
+    # mid-stream (httpx.RemoteProtocolError "incomplete chunked read"), and a
+    # freshly released model also throws transient 5xx/overloaded. The SDK's
+    # max_retries does NOT cover errors raised *during* stream iteration, so we
+    # retry the whole turn here. Scoped to Fable models; non-Fable models keep
+    # the original live-streaming path untouched.
+    if "fable" in model:
+        yield from _stream_anthropic_resilient(
+            client, model, system, anthropic_messages, anthropic_tools, max_tokens
+        )
+        return
+
     usage = Usage()
     current_tool_name = None
     current_tool_json = ""
@@ -182,7 +204,7 @@ def _stream_anthropic(model, system, messages, tools):
 
     with client.messages.stream(
         model=model,
-        max_tokens=16384,
+        max_tokens=max_tokens,
         system=system,
         messages=anthropic_messages,
         tools=anthropic_tools,
@@ -216,6 +238,91 @@ def _stream_anthropic(model, system, messages, tools):
                     usage.input_tokens = event.message.usage.input_tokens
 
     yield Done(usage)
+
+
+def _stream_anthropic_resilient(client, model, system, anthropic_messages, anthropic_tools, max_tokens):
+    """Buffered, retrying stream for adaptive-thinking models.
+
+    Each attempt accumulates events and only emits them once the stream
+    completes cleanly. A retryable failure (mid-stream connection drop,
+    transient 5xx/overloaded/rate-limit) discards the partial attempt and
+    re-streams the whole turn with exponential backoff. Buffering (rather than
+    yielding live) is what makes the retry clean — the agent never sees events
+    from a half-finished attempt. Trades live token streaming for resilience,
+    which matters for long unattended runs against a new model.
+    """
+    import json
+    import sys as _sys
+    import time as _time
+
+    import anthropic
+    import httpx
+
+    RETRYABLE = (
+        anthropic.APIConnectionError,
+        anthropic.APITimeoutError,
+        anthropic.InternalServerError,   # 5xx, includes 529 overloaded
+        anthropic.RateLimitError,
+        httpx.RemoteProtocolError,
+        httpx.ReadError,
+        httpx.ReadTimeout,
+    )
+    MAX_ATTEMPTS = 6
+
+    for attempt in range(MAX_ATTEMPTS):
+        usage = Usage()
+        current_tool_name = None
+        current_tool_json = ""
+        current_tool_id = None
+        buffered = []
+        try:
+            with client.messages.stream(
+                model=model,
+                max_tokens=max_tokens,
+                system=system,
+                messages=anthropic_messages,
+                tools=anthropic_tools,
+            ) as stream:
+                for event in stream:
+                    if event.type == "content_block_start":
+                        if event.content_block.type == "tool_use":
+                            current_tool_name = event.content_block.name
+                            current_tool_id = event.content_block.id
+                            current_tool_json = ""
+                    elif event.type == "content_block_delta":
+                        if event.delta.type == "text_delta":
+                            buffered.append(TextDelta(event.delta.text))
+                        elif event.delta.type == "input_json_delta":
+                            current_tool_json += event.delta.partial_json
+                    elif event.type == "content_block_stop":
+                        if current_tool_name:
+                            args = json.loads(current_tool_json) if current_tool_json else {}
+                            buffered.append(ToolCall(current_tool_name, args))
+                            buffered.append(_ToolMeta(current_tool_id))
+                            current_tool_name = None
+                            current_tool_json = ""
+                            current_tool_id = None
+                    elif event.type == "message_delta":
+                        if hasattr(event, "usage") and event.usage:
+                            usage.output_tokens = event.usage.output_tokens
+                    elif event.type == "message_start":
+                        if hasattr(event.message, "usage") and event.message.usage:
+                            usage.input_tokens = event.message.usage.input_tokens
+        except RETRYABLE as e:
+            if attempt == MAX_ATTEMPTS - 1:
+                raise
+            backoff = min(2 ** attempt, 30)
+            print(
+                f"\n[providers] stream {type(e).__name__} mid-turn; "
+                f"retry {attempt + 1}/{MAX_ATTEMPTS - 1} in {backoff}s",
+                file=_sys.stderr, flush=True,
+            )
+            _time.sleep(backoff)
+            continue
+        # Clean completion — emit the whole turn at once, then finish.
+        yield from buffered
+        yield Done(usage)
+        return
 
 
 @dataclass

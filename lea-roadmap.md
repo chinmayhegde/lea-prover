@@ -113,6 +113,59 @@ outputs. Without statement-equivalence checking, no leaderboard claim is
 honest, and the cheat patches in `eval/run_fqb_best_of_n.py` are
 patches, not solutions.
 
+**New (2026-06-10): SafeVerify is integrated but has a sorry-bypass hole.**
+The universe-alpha-equivalence relaxation in `eval/utils/verify.py` (added
+2026-04-26) short-circuits to *accept* a "theorem type mismatch" whose
+Expected/Got types are alpha-equivalent — **before** running the axiom
+whitelist. So a proof that `sorry`s its lemmas but whose `MainTheorem`
+differs from target only in universe-param names is wrongly accepted. The
+Fable 5 run's lone cheat (PontryaginDuality, `#print axioms → sorryAx`)
+slipped through exactly here. **Fix (~10 LoC):** on the relaxation-accept
+path, still run the submission's axiom whitelist (reject `sorryAx` / any
+non-whitelisted axiom); or, more robustly, gate *every* accepted proof on
+`#print axioms MainTheorem ⊆ {propext, Classical.choice, Quot.sound}`. The
+`#print axioms` gate is the cheapest dispositive check and caught all
+cheats in the Fable run independent of SafeVerify internals. See
+[`fqb-reports/fqb-fable5-bon5-report.md`](fqb-reports/fqb-fable5-bon5-report.md).
+
+### Phase 0.1 — Fable 5 run follow-ups (2026-06-10)
+
+From the Claude Fable 5 best-of-5 run (9/23 legit, new best — strict
+superset of Opus's 6; detail in the report above). Concrete, mostly small:
+
+1. **SafeVerify-in-the-loop (highest leverage).** 3 of 13 fails
+   (VonNeumann, JordanCycle, Runge) wrote *complete, sorry-free, compiling*
+   proofs with the verbatim target statement that failed only the kernel
+   declaration-match — an **instance-diamond** in how `Set.centralizer` /
+   `StarSubalgebra` elaborate their `Mul`/algebra instance (the C\*-algebra
+   path from `[CompleteSpace H]` diverges from the target's canonical
+   instances). The agent *cannot see this*: `lake env lean` accepts its file
+   (typechecks against its own elaboration); only the cross-file comparator
+   catches it. Running SafeVerify (target-vs-submission) inside the agent
+   loop and feeding back the mismatch would let the agent pin the canonical
+   instances. Plausibly converts 1–3 fails to solves. Pairs with the Phase
+   1.3 stuck-detection injection.
+
+2. **Per-attempt time (not turn) cap.** SkolemMahlerLech ran one *uncapped*
+   attempt for **23.6h** before erroring, dominating the run's 26.7h
+   wall-clock. A turn cap is the wrong knob — Schauder's *winning* attempt
+   was 269 min / 192 turns. Cap on wall-time per attempt (e.g. 2–3h) in
+   `eval/run_fqb_best_of_n.py` / `agent.py`.
+
+3. **Best-of-N diversity collapse.** On the instance-mismatch problems,
+   Fable produced **byte-identical** proofs across all 5 attempts —
+   best-of-5 added nothing. Independent *attempts* aren't independent if the
+   model converges deterministically. Consider attempt-level diversity
+   (temperature bump, varied prompt framing, or per-attempt strategy hints)
+   rather than raw repetition.
+
+4. **Fable provider notes (done; for reference).** Adaptive thinking plans
+   against the declared `max_tokens` (set 128k, not 16k) and intermittently
+   drops the stream mid-turn (`RemoteProtocolError`) — both handled in
+   `lea/providers.py`. The advertised `effort` param is **not** accepted by
+   anthropic SDK 0.109.1; revisit when the SDK exposes it (could cut the
+   slow deep-thinking turns that made attempts multi-hour).
+
 ### Phase 1 — Collaborator affordances (~80 LoC, mostly `tools.py` + `prompt.py`)
 
 The single highest-leverage thing Claude Code had this session was the
