@@ -73,22 +73,18 @@ TOOLS_SCHEMA = [
     },
     {
         "name": "search_mathlib",
-        "description": "Search Mathlib for lemmas/theorems matching a query. Greps Mathlib source files for the query string. If you are proving in a specific Lake project (e.g., miniF2F, FormalQualBench), pass `path` so the search uses THAT project's Mathlib version — different projects pin different Mathlib versions, and a hit in the wrong version is worse than no hit.",
+        "description": "Semantic (natural-language) search over Mathlib declarations via LeanExplore. Use this when you know WHAT property you want but do NOT know the Lean lemma name — e.g. 'a transitive group action on a set of prime cardinality is primitive'. Returns the top-k Lean declarations with name, module, source text, and an AI-generated natural-language paraphrase (`informalization`). Prefer this over `bash grep` for concept→name lookup; use `bash grep` only when you already know a name fragment.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Search term — a lemma name fragment, type signature pattern, or keyword.",
+                    "description": "A natural-language description of the lemma/definition you want. Be specific about the mathematical objects (group/ring/action/topology/etc.) and the property. Do NOT paste raw Lean goal text with unfolded types — describe the intent. Good: 'Sylow p-subgroup is normal when unique'. Bad: '@Sylow G _ p _ → Subgroup.Normal _'.",
                 },
-                "max_results": {
+                "limit": {
                     "type": "integer",
-                    "description": "Maximum number of results to return.",
-                    "default": 10,
-                },
-                "path": {
-                    "type": "string",
-                    "description": "Optional path to a .lean file or directory inside a Lake project. If provided, search Mathlib in that project's Lake packages instead of the default workspace Mathlib.",
+                    "description": "Maximum number of results to return (default 8).",
+                    "default": 8,
                 },
             },
             "required": ["query"],
@@ -195,77 +191,51 @@ def bash(command: str, timeout: int = 120) -> str:
         return f"Error: command timed out after {timeout}s."
 
 
-WORKSPACE = Path(__file__).resolve().parent.parent / "workspace"
+def search_mathlib(query: str, limit: int = 8) -> str:
+    """Semantic Mathlib search via LeanExplore's hosted API.
 
+    Requires LEANEXPLORE_API_KEY in the environment — raise rather than
+    silently falling back, so the caller knows to configure auth.
+    """
+    if not query or not query.strip():
+        return "Error: query is empty. Provide a natural-language description of the lemma/definition you want."
+    if not os.environ.get("LEANEXPLORE_API_KEY"):
+        return (
+            "Error: LEANEXPLORE_API_KEY is not set. Get a key at "
+            "https://www.leanexplore.com and `export LEANEXPLORE_API_KEY=...`."
+        )
+    try:
+        import asyncio
+        from lean_explore.api import ApiClient
+    except ImportError:
+        return "Error: `lean-explore` package not installed. Run `uv sync` or `pip install lean-explore`."
 
-def _mathlib_for_lake_root(lake_root: Path) -> Path | None:
-    for sub in (".lake/packages/mathlib/Mathlib", "lake-packages/mathlib/Mathlib"):
-        candidate = lake_root / sub
-        if candidate.exists():
-            return candidate
-    return None
-
-
-def search_mathlib(query: str, max_results: int = 10, path: str | None = None) -> str:
-    search_dir = None
-    project_label = "default workspace"
-
-    if path:
-        lake_root_str = _find_lake_root(path)
-        if lake_root_str:
-            mathlib = _mathlib_for_lake_root(Path(lake_root_str))
-            if mathlib:
-                search_dir = str(mathlib)
-                project_label = lake_root_str
-            else:
-                return f"Error: Mathlib not found under Lake project at {lake_root_str}. Ensure Mathlib is a Lake dependency."
-        else:
-            return f"Error: no Lake project (lakefile.lean/lakefile.toml) found above {path}."
-
-    if not search_dir:
-        for candidate in (
-            WORKSPACE / ".lake" / "packages" / "mathlib" / "Mathlib",
-            WORKSPACE / "lake-packages" / "mathlib" / "Mathlib",
-        ):
-            if candidate.exists():
-                search_dir = str(candidate)
-                break
-
-    if not search_dir:
-        return "Error: Mathlib source not found. Ensure Mathlib is a Lake dependency."
+    async def _run() -> str:
+        client = ApiClient(timeout=20.0)
+        resp = await client.search(query=query, limit=int(limit), packages=["Mathlib"])
+        if not resp.results:
+            return f"No semantic matches for {query!r}."
+        out = [f"Found {resp.count} result(s) in {resp.processing_time_ms}ms:"]
+        for i, r in enumerate(resp.results, 1):
+            out.append(f"#{i} {r.name}  [{r.module}]")
+            inf = (r.informalization or "").strip()
+            if inf:
+                first_para = inf.split("\n\n")[0].replace("\n", " ")
+                if len(first_para) > 400:
+                    first_para = first_para[:400].rstrip() + "…"
+                out.append(f"  {first_para}")
+            src = (r.source_text or "").strip()
+            if src:
+                snippet = "\n    ".join(src.split("\n")[:6])
+                if len(src.split("\n")) > 6:
+                    snippet += "\n    …"
+                out.append(f"    {snippet}")
+        return "\n".join(out)
 
     try:
-        result = subprocess.run(
-            ["grep", "-r", "-n", "--include=*.lean", "-l", query, search_dir],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        files = result.stdout.strip().split("\n")
-        files = [f for f in files if f][:max_results]
-        if not files:
-            return f"No Mathlib results for '{query}' in {project_label}."
-
-        # Get matching lines from each file
-        lines = []
-        for f in files[:max_results]:
-            grep_result = subprocess.run(
-                ["grep", "-n", query, f],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            for line in grep_result.stdout.strip().split("\n")[:2]:
-                short_path = f.split("Mathlib/")[-1] if "Mathlib/" in f else f
-                lines.append(f"  Mathlib/{short_path}:{line}")
-                if len(lines) >= max_results:
-                    break
-            if len(lines) >= max_results:
-                break
-
-        return f"Found {len(lines)} matches in {project_label}:\n" + "\n".join(lines)
-    except subprocess.TimeoutExpired:
-        return "Error: search timed out."
+        return asyncio.run(_run())
+    except Exception as e:
+        return f"Error: LeanExplore request failed: {e}"
 
 
 # Dispatch table
@@ -275,5 +245,5 @@ TOOL_HANDLERS = {
     "write_file": lambda args: write_file(args["path"], args["content"]),
     "edit_file": lambda args: edit_file(args["path"], args["old_string"], args["new_string"]),
     "lean_check": lambda args: lean_check(args["path"]),
-    "search_mathlib": lambda args: search_mathlib(args["query"], args.get("max_results", 10), args.get("path")),
+    "search_mathlib": lambda args: search_mathlib(args["query"], args.get("limit", 8)),
 }

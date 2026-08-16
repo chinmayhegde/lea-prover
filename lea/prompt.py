@@ -46,7 +46,7 @@ This directory is inside a Lake project with Mathlib available.
 3. Fill each `sorry` one at a time. For each:
    - Try simple tactics first: `rfl`, `simp`, `norm_num`, `omega`, `linarith`, `decide`.
    - Try `exact?` or `apply?`: write a scratch .lean file with the goal and run `lean_check`.
-   - If those fail, use `search_mathlib` for relevant lemmas.
+   - If those fail, use `search_mathlib` for relevant lemmas — describe the property in natural language (concept → Lean name).
 4. After filling all sorrys, run lean_check on the complete proof.
 5. If some sorrys can't be filled after several attempts, **reflect**: \
 step back and ask whether the decomposition is wrong. Consider rewriting the sketch \
@@ -108,16 +108,41 @@ Translate natural-language proof moves to Lean 4 idioms:
 - **Never modify the theorem statement.** Declaration headers — everything from `theorem` / `def` / `lemma` through `:= by` — are immutable. Do not rewrite the name, binders, type signature, or the statement itself. If you believe the statement is wrong or unprovable, stop and report it. Redefining a name or weakening the statement does not count as a proof.
 - NEVER leave `exact?`, `apply?`, `simp?`, or `decide?` in final proofs. Replace them with the tactic they suggest.
 - NEVER invent lemma names. Use `exact?`/`apply?` or `search_mathlib` to find real ones.
-- For ANY Mathlib lookup, use the `search_mathlib` tool — do NOT run `grep`, `find`, or `rg` on Mathlib source via `bash`. The dedicated tool already knows the correct path, filters irrelevant matches, and is faster. Reserve `bash` for shell operations that aren't about searching Mathlib (e.g., `lake build`, file I/O beyond the dedicated tools).
+- For Mathlib lemma lookup: `search_mathlib` (semantic) when you know the property but not the name; `bash grep` only when you already know a name fragment (e.g. `Nat.gcd_`, `Continuous.add`). See the section below for query phrasing.
 - If you've failed 3+ times on the same sub-goal with the same approach, try a completely different strategy. Do not keep editing the same broken proof.
 - Report clearly if a statement appears to be false or unprovable.
 
+## Using `search_mathlib` (semantic search)
+
+Phrase queries as a short DECLARATIVE sentence describing the property, not as a bag of keywords or as Lean syntax. The backend (LeanExplore) matches against natural-language paraphrases of each Mathlib lemma, so descriptive math prose wins.
+
+GOOD examples (all verified to rank top-3 against the live API):
+  search_mathlib("the intersection of two open sets is open")
+    -> IsOpen.inter        (#1)
+  search_mathlib("every prime is at least two")
+    -> Nat.Prime.two_le    (#1)
+  search_mathlib("the union of two sets is commutative")
+    -> Set.union_comm      (#3)
+
+What makes these work: short, declarative, no quantifiers ("for any x"), no logical connectives ("if ... then ..."), no Lean syntax in the query.
+
+BAD patterns to avoid:
+  - Keyword soup:     "open intersection topology"            (no verb/relation between the nouns)
+  - Lean syntax:      "(a⁻¹)⁻¹ = a in a group"                (indexer wants prose, not code)
+  - If-then wrapping: "if f and g are continuous then ..."    (loses to the direct
+                                                               "composition of two continuous
+                                                               functions is continuous")
+
+Important: `search_mathlib` returns the top-K results — DO NOT expect the #1 hit to always be the answer. Scan all 10. If the answer isn't in the first 10, your query phrasing is wrong; reframe around a DIFFERENT mathematical sub-object, do not just shuffle synonyms.
+
 ## Search budget (IMPORTANT)
-You have a HARD budget of 20 Mathlib searches (grep/find in Mathlib source or `search_mathlib`
-calls) per problem across ALL turns. Count them yourself. After 20 searches, you MUST stop
-searching and commit to writing the proof from scratch using a `have`-based skeleton with
-`sorry` placeholders. The benchmark assumes the theorem is NOT in Mathlib — endless searching
-is a failure mode. A partial proof with intermediate lemmas beats no proof.
+You have a HARD budget of 15 Mathlib searches (`search_mathlib` calls + grep/find over Mathlib
+source via `bash`) per problem across ALL turns. Count them yourself. After 15 searches, you
+MUST stop searching and commit to writing the proof from scratch using a `have`-based skeleton
+with `sorry` placeholders. The benchmark assumes the theorem is NOT in Mathlib — endless
+searching is a failure mode. A partial proof with intermediate lemmas beats no proof.
+Semantic `search_mathlib` results are dense (informalization + source); 5–10 well-phrased
+semantic queries usually beat 50 grep attempts.
 """
 
 
